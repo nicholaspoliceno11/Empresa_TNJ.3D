@@ -9,7 +9,8 @@
 window.TNJConfig = {
   // Cole aqui a URL do App da Web (termina em /exec) após implantar o Apps Script.
   // Ex.: "https://script.google.com/macros/s/AKfycb.../exec"
-  API_URL: "",
+  API_URL:
+    "https://script.google.com/macros/s/AKfycbw0ExZh2Y-TEl9UU1mvaAiUDhKDoHlKlaE0hOPwTeUcvnm6_NXkgLX9dT5Qzjs7ZvoJpQ/exec",
 
   // Planilha TNJ.3D — Gestão & Custos (vincule o Apps Script a esta planilha).
   PLANILHA_ID: "1IRR33vv1pUYtr87Q6OpktZR3WfPHrXUrv2aOq4o1pAA",
