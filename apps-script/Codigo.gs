@@ -393,26 +393,22 @@ function adicionarFilamento(p) {
 
 function inicializarAbas() {
   var criadas = [];
-  ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
-  criadas.push(ABA_FILAMENTOS);
-  ensureSheet(ABA_PROJETOS, CABECALHO_PROJETOS);
-  criadas.push(ABA_PROJETOS);
-  ensureSheet(ABA_FILAMENTO_CUSTO, CABECALHO_FIL_CUSTO);
-  criadas.push(ABA_FILAMENTO_CUSTO);
-  ensureSheet(ABA_ENERGIA, [
-    "Data", "ID", "Impressora", "Consumo (W)", "Tempo (h)", "kWh", "Custo",
-  ]);
-  criadas.push(ABA_ENERGIA);
-  ensureSheet(ABA_MAO_DE_OBRA, ["Data", "ID", "Custo"]);
-  criadas.push(ABA_MAO_DE_OBRA);
-  ensureSheet(ABA_MANUTENCAO, ["Data", "ID", "Taxa (R$/h)", "Tempo (h)", "Custo"]);
-  criadas.push(ABA_MANUTENCAO);
-  ensureSheet(ABA_INSUMOS, ["Data", "ID", "Custo"]);
-  criadas.push(ABA_INSUMOS);
-  ensureSheet(ABA_VENDAS, CABECALHO_VENDAS);
-  criadas.push(ABA_VENDAS);
-  ensureSheet(ABA_SAIDAS, CABECALHO_SAIDAS);
-  criadas.push(ABA_SAIDAS);
+  var abas = [
+    [ABA_FILAMENTOS, ["Material", "Valor", "QTD"]],
+    [ABA_PROJETOS, CABECALHO_PROJETOS],
+    [ABA_FILAMENTO_CUSTO, CABECALHO_FIL_CUSTO],
+    [ABA_ENERGIA, ["Data", "ID", "Impressora", "Consumo (W)", "Tempo (h)", "kWh", "Custo"]],
+    [ABA_MAO_DE_OBRA, ["Data", "ID", "Custo"]],
+    [ABA_MANUTENCAO, ["Data", "ID", "Taxa (R$/h)", "Tempo (h)", "Custo"]],
+    [ABA_INSUMOS, ["Data", "ID", "Custo"]],
+    [ABA_VENDAS, CABECALHO_VENDAS],
+    [ABA_SAIDAS, CABECALHO_SAIDAS],
+  ];
+  for (var i = 0; i < abas.length; i++) {
+    var sheet = obterAba(abas[i][0], abas[i][1], true);
+    if (!sheet) throw new Error("Não foi possível criar a aba: " + abas[i][0]);
+    criadas.push(abas[i][0]);
+  }
   return criadas;
 }
 
@@ -422,7 +418,7 @@ function planilha() {
 }
 
 function ensureSheet(nome, cabecalho) {
-  return obterAba(nome, cabecalho, false);
+  return obterAba(nome, cabecalho, true);
 }
 
 function obterAba(nome, cabecalho, criarSeFaltar) {
