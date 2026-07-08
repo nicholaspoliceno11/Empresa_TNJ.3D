@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="assets/css/styles.css?v=4" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=5" />
   </head>
   <body>
     <header class="topbar">
@@ -207,8 +207,19 @@
         <div class="card setup-card">
           <h2>Conectar à planilha Google</h2>
           <p class="muted">
-            Para gravar os custos na planilha, publique o backend (Google Apps Script) e cole
-            a URL do App da Web abaixo.
+            O site (GitHub Pages) não pode gravar direto na planilha — seria preciso expor senhas
+            no código. O Apps Script funciona como uma ponte segura e gratuita na sua conta Google.
+          </p>
+
+          <div class="setup-alert">
+            <strong>Importante:</strong> ao implantar, escolha
+            <strong>"Quem tem acesso: Qualquer pessoa"</strong> (acesso anônimo).
+            Se escolher "com conta Google", o site dará erro de conexão.
+          </div>
+
+          <p class="muted">
+            Para gravar os custos na planilha, publique o backend (Google Apps Script) e cole a URL
+            do App da Web abaixo.
           </p>
 
           <ol class="setup-steps">
@@ -262,8 +273,8 @@
       <span id="mode-badge" class="badge">—</span>
     </footer>
 
-    <script src="assets/js/calc.js?v=4"></script>
-    <script src="assets/js/config.js?v=4"></script>
-    <script src="assets/js/app.js?v=4"></script>
+    <script src="assets/js/calc.js?v=5"></script>
+    <script src="assets/js/config.js?v=5"></script>
+    <script src="assets/js/app.js?v=5"></script>
   </body>
 </html>

@@ -84,38 +84,89 @@
     "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   /* --------------------- API --------------------- */
-  // POST + text/plain evita bloqueio CORS do Apps Script (GET redireciona e falha no fetch).
-  async function apiPost(body) {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(body),
+  const API_TIMEOUT_MS = 20000;
+  const ERRO_CONEXAO =
+    "Não conectou. No Apps Script vá em Implantar → Gerenciar implantações → Editar → " +
+    'confirme "Quem tem acesso: Qualquer pessoa" (acesso anônimo, sem login Google). ' +
+    "Depois Nova versão → Implantar.";
+
+  // JSONP: contorna bloqueio CORS do Apps Script no GitHub Pages.
+  function apiJsonp(action) {
+    return new Promise((resolve, reject) => {
+      const cb = "_tnjCb" + Date.now();
+      let script;
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error(ERRO_CONEXAO));
+      }, API_TIMEOUT_MS);
+
+      function cleanup() {
+        clearTimeout(timer);
+        delete window[cb];
+        if (script && script.parentNode) script.remove();
+      }
+
+      window[cb] = (data) => {
+        cleanup();
+        resolve(data);
+      };
+
+      script = document.createElement("script");
+      const u = new URL(API_URL);
+      u.searchParams.set("action", action);
+      u.searchParams.set("callback", cb);
+      script.src = u.toString();
+      script.onerror = () => {
+        cleanup();
+        reject(new Error(ERRO_CONEXAO));
+      };
+      document.head.appendChild(script);
     });
-    const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new Error("Resposta inválida da API. Verifique a URL /exec do Apps Script.");
+  }
+
+  async function apiPost(body) {
+    const payload = JSON.stringify(body);
+    const attempts = [
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: "payload=" + encodeURIComponent(payload),
+      },
+      {
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        body: payload,
+      },
+    ];
+
+    let lastErr;
+    for (const req of attempts) {
+      try {
+        const res = await fetch(API_URL, { method: "POST", ...req });
+        const text = await res.text();
+        return JSON.parse(text);
+      } catch (e) {
+        lastErr = e;
+      }
     }
+    throw lastErr || new Error(ERRO_CONEXAO);
   }
 
   async function fetchFilamentos() {
     if (DEMO) return cfg.FILAMENTOS_DEMO.slice();
-    const data = await apiPost({ action: "filamentos" });
+    const data = await apiJsonp("filamentos");
     if (!data.ok) throw new Error(data.error || "Falha ao carregar filamentos");
     return data.filamentos;
   }
 
   async function fetchProjetos() {
     if (DEMO) return [];
-    const data = await apiPost({ action: "projetos" });
+    const data = await apiJsonp("projetos");
     if (!data.ok) throw new Error(data.error || "Falha ao carregar projetos");
     return data.projetos;
   }
 
   async function fetchProximoId() {
     if (DEMO) return gerarIdLocal();
-    const data = await apiPost({ action: "proximoId" });
+    const data = await apiJsonp("proximoId");
     if (!data.ok) throw new Error(data.error || "Falha ao gerar ID");
     return data.projetoId;
   }
@@ -218,7 +269,7 @@
     const prev = API_URL;
     API_URL = testUrl;
     try {
-      const data = await apiPost({ action: "filamentos" });
+      const data = await apiJsonp("filamentos");
       if (!data.ok) throw new Error(data.error || "Resposta inválida da API");
       return data.filamentos || [];
     } finally {

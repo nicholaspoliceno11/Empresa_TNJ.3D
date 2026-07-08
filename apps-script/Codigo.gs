@@ -36,24 +36,25 @@ var CABECALHO_PROJETOS = [
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "filamentos";
+    var result;
     if (action === "filamentos") {
-      return json({ ok: true, filamentos: lerFilamentos() });
+      result = { ok: true, filamentos: lerFilamentos() };
+    } else if (action === "projetos") {
+      result = { ok: true, projetos: lerProjetos() };
+    } else if (action === "proximoId") {
+      result = { ok: true, projetoId: proximoProjetoId() };
+    } else {
+      result = { ok: false, error: "Ação desconhecida: " + action };
     }
-    if (action === "projetos") {
-      return json({ ok: true, projetos: lerProjetos() });
-    }
-    if (action === "proximoId") {
-      return json({ ok: true, projetoId: proximoProjetoId() });
-    }
-    return json({ ok: false, error: "Ação desconhecida: " + action });
+    return outputJson(result, e);
   } catch (err) {
-    return json({ ok: false, error: String(err) });
+    return outputJson({ ok: false, error: String(err) }, e);
   }
 }
 
 function doPost(e) {
   try {
-    var payload = JSON.parse(e.postData.contents);
+    var payload = parsePayload(e);
     var action = payload.action;
     if (action === "filamentos") {
       return json({ ok: true, filamentos: lerFilamentos() });
@@ -69,6 +70,16 @@ function doPost(e) {
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
+}
+
+function parsePayload(e) {
+  if (e && e.parameter && e.parameter.payload) {
+    return JSON.parse(e.parameter.payload);
+  }
+  if (e && e.postData && e.postData.contents) {
+    return JSON.parse(e.postData.contents);
+  }
+  throw new Error("Corpo da requisição vazio");
 }
 
 /* -------------------- Leitura -------------------- */
@@ -223,4 +234,17 @@ function json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
     ContentService.MimeType.JSON
   );
+}
+
+function outputJson(obj, e) {
+  var text = JSON.stringify(obj);
+  var callback = e && e.parameter && e.parameter.callback;
+  if (callback) {
+    callback = String(callback).replace(/[^\w$.]/g, "");
+    if (callback) {
+      return ContentService.createTextOutput(callback + "(" + text + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+  }
+  return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
 }
