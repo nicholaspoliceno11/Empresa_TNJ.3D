@@ -432,6 +432,7 @@
       horas: r.horas,
       consumoW: Calc.toNumber(el.consumoW.value),
       valorKwh: Calc.toNumber(el.valorKwh.value),
+      taxaManutencaoHora: Calc.toNumber(el.taxaManutencao.value),
       margem: r.margem,
       custos: r.custos,
       custosUnitarios: r.custosUnitarios,

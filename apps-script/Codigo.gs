@@ -104,7 +104,7 @@ function lerFilamentos() {
 }
 
 function lerProjetos() {
-  var sheet = planilha().getSheetByName(ABA_PROJETOS);
+  var sheet = obterAba(ABA_PROJETOS, null, false);
   if (!sheet) return [];
   var valores = sheet.getDataRange().getValues();
   var lista = [];
@@ -152,7 +152,7 @@ function lerProjetos() {
 /* -------------------- Gravação -------------------- */
 function proximoProjetoId() {
   var hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
-  var sheet = planilha().getSheetByName(ABA_PROJETOS);
+  var sheet = obterAba(ABA_PROJETOS, null, false);
   var seq = 1;
   if (sheet && sheet.getLastRow() > 1) {
     seq = sheet.getLastRow();
@@ -194,10 +194,21 @@ function gravarCusto(p) {
     agora, p.projetoId, num(c.maoDeObra),
   ]);
 
-  // 5) Manutenção (custos fixos)
-  ensureSheet(ABA_MANUTENCAO, ["Data", "ID", "Tempo (h)", "Custo"]).appendRow([
-    agora, p.projetoId, num(p.horas), num(c.custosFixos),
-  ]);
+  // 5) Manutenção (custos fixos = taxa R$/h × horas)
+  var sheetManut = obterAba(ABA_MANUTENCAO, ["Data", "ID", "Taxa (R$/h)", "Tempo (h)", "Custo"]);
+  var cabManut = sheetManut.getLastRow() > 0
+    ? sheetManut.getRange(1, 1, 1, sheetManut.getLastColumn()).getValues()[0]
+    : [];
+  if (String(cabManut[2] || "") === "Taxa (R$/h)") {
+    sheetManut.appendRow([
+      agora, p.projetoId, num(p.taxaManutencaoHora), num(p.horas), num(c.custosFixos),
+    ]);
+  } else {
+    // Formato antigo: Data | ID | Tempo (h) | Custo
+    sheetManut.appendRow([
+      agora, p.projetoId, num(p.horas), num(c.custosFixos),
+    ]);
+  }
 
   // 6) Insumos
   ensureSheet(ABA_INSUMOS, ["Data", "ID", "Custo"]).appendRow([
@@ -228,7 +239,7 @@ function inicializarAbas() {
   criadas.push(ABA_ENERGIA);
   ensureSheet(ABA_MAO_DE_OBRA, ["Data", "ID", "Custo"]);
   criadas.push(ABA_MAO_DE_OBRA);
-  ensureSheet(ABA_MANUTENCAO, ["Data", "ID", "Tempo (h)", "Custo"]);
+  ensureSheet(ABA_MANUTENCAO, ["Data", "ID", "Taxa (R$/h)", "Tempo (h)", "Custo"]);
   criadas.push(ABA_MANUTENCAO);
   ensureSheet(ABA_INSUMOS, ["Data", "ID", "Custo"]);
   criadas.push(ABA_INSUMOS);
@@ -241,10 +252,29 @@ function planilha() {
 }
 
 function ensureSheet(nome, cabecalho) {
+  return obterAba(nome, cabecalho, false);
+}
+
+/**
+ * Obtém aba pelo nome. Se houver duplicatas (ex.: duas "Manutenção"),
+ * usa a última (mais à direita) — onde o usuário costuma olhar.
+ */
+function obterAba(nome, cabecalho, criarSeFaltar) {
+  if (criarSeFaltar === undefined) criarSeFaltar = true;
   var ss = planilha();
-  var sheet = ss.getSheetByName(nome);
-  if (!sheet) sheet = ss.insertSheet(nome);
-  if (sheet.getLastRow() === 0 && cabecalho) {
+  var matches = [];
+  var todas = ss.getSheets();
+  for (var i = 0; i < todas.length; i++) {
+    if (todas[i].getName() === nome) matches.push(todas[i]);
+  }
+  var sheet;
+  if (matches.length === 0) {
+    if (!criarSeFaltar) return null;
+    sheet = ss.insertSheet(nome);
+  } else {
+    sheet = matches[matches.length - 1];
+  }
+  if (cabecalho && sheet.getLastRow() === 0) {
     sheet.appendRow(cabecalho);
     sheet.getRange(1, 1, 1, cabecalho.length).setFontWeight("bold");
   }
