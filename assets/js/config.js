@@ -26,6 +26,19 @@ window.TNJConfig = {
   // Prefixo do código automático de projeto (ex.: PRJ-20260708-001).
   PREFIXO_PROJETO: "PRJ",
 
+  LOGO: "assets/img/logo.png",
+
+  RESPONSAVEIS: ["Nicholas", "João", "Thelma"],
+
+  FORMAS_PAGAMENTO: [
+    { id: "PIX", nome: "PIX" },
+    { id: "CC", nome: "CC (Cartão de Crédito)" },
+    { id: "CD", nome: "CD (Cartão de Débito)" },
+    { id: "CASH", nome: "CASH (Dinheiro)" },
+  ],
+
+  MAX_FILAMENTOS: 4,
+
   // Valores padrão iguais aos da planilha (aba "Calculadora").
   PADROES: {
     consumoW: 200,

@@ -3,24 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
-    <meta
-      name="description"
-      content="Calculadora de custos e gestão para impressão 3D — TNJ.3D"
-    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="assets/css/styles.css?v=6" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=9" />
   </head>
   <body>
     <header class="topbar">
       <div class="brand">
-        <div class="brand-logo" aria-hidden="true">3D</div>
+        <img id="brand-logo-img" class="brand-logo-img" src="assets/img/logo.png" alt="TNJ.3D" />
         <div class="brand-text">
           <strong>TNJ.3D</strong>
           <span>Gestão &amp; Custos</span>
@@ -29,241 +21,187 @@
       <nav class="tabs" id="tabs">
         <button class="tab active" data-view="calculadora">Calculadora</button>
         <button class="tab" data-view="projetos">Projetos</button>
-        <button class="tab" data-view="config">Configuração</button>
+        <button class="tab" data-view="vendas">Vendas</button>
+        <button class="tab" data-view="filamentos">Filamentos</button>
+        <button class="tab" data-view="config">Config</button>
       </nav>
-      <div class="conn" id="conn-status" title="Status da conexão">
-        <span class="dot"></span><span class="conn-label">verificando…</span>
-      </div>
+      <div class="conn" id="conn-status"><span class="dot"></span><span class="conn-label">…</span></div>
     </header>
 
     <main class="container">
-      <!-- ================= CALCULADORA ================= -->
+      <!-- CALCULADORA -->
       <section id="view-calculadora" class="view active">
         <div class="grid">
-          <!-- Coluna de entradas -->
           <div class="card">
             <h2>Calculadora de Custo — Impressão 3D</h2>
 
             <fieldset>
-              <legend>Filamento</legend>
-              <label for="filamento">Filamento</label>
-              <select id="filamento"></select>
-
-              <div class="row">
-                <div>
-                  <label for="precoFilamento">Preço do Filamento (R$/Kg)</label>
-                  <input id="precoFilamento" type="number" step="0.01" min="0" />
-                </div>
-                <div>
-                  <label for="quantidade">Quantidade utilizada</label>
-                  <div class="input-unit">
-                    <input id="quantidade" type="number" step="0.01" min="0" value="1.14" />
-                    <select id="unidadeQuantidade">
-                      <option value="g" selected>g</option>
-                      <option value="kg">Kg</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+              <legend>Filamentos (até 4)</legend>
+              <p class="muted field-hint">Marque os filamentos usados. Cada um com quantidade (g/Kg) e tempo de impressão.</p>
+              <div id="filamentos-slots"></div>
             </fieldset>
 
             <fieldset>
-              <legend>Energia e Tempo</legend>
+              <legend>Energia</legend>
               <div class="row">
-                <div>
-                  <label for="consumoW">Consumo da impressora (W)</label>
-                  <input id="consumoW" type="number" step="1" min="0" />
-                </div>
-                <div>
-                  <label for="valorKwh">Valor do kWh (R$)</label>
-                  <input id="valorKwh" type="number" step="0.01" min="0" />
-                </div>
-              </div>
-              <label for="tempo">Tempo de impressão</label>
-              <div class="input-unit">
-                <input id="tempo" type="number" step="0.01" min="0" value="0.12" />
-                <select id="unidadeTempo">
-                  <option value="h" selected>horas</option>
-                  <option value="min">minutos</option>
-                </select>
+                <div><label for="consumoW">Consumo (W)</label><input id="consumoW" type="number" step="1" min="0" /></div>
+                <div><label for="valorKwh">kWh (R$)</label><input id="valorKwh" type="number" step="0.01" min="0" /></div>
               </div>
             </fieldset>
 
             <fieldset>
               <legend>Opcionais</legend>
               <div class="row">
-                <div>
-                  <label for="maoDeObra">Mão de obra (R$)</label>
-                  <input id="maoDeObra" type="number" step="0.01" min="0" />
-                </div>
-                <div>
-                  <label for="taxaManutencao">Custo fixo / manutenção (R$/h)</label>
-                  <input id="taxaManutencao" type="number" step="0.01" min="0" />
-                </div>
+                <div><label for="maoDeObra">Mão de obra (R$)</label><input id="maoDeObra" type="number" step="0.01" min="0" /></div>
+                <div><label for="taxaManutencao">Manutenção (R$/h)</label><input id="taxaManutencao" type="number" step="0.01" min="0" /></div>
               </div>
               <div class="row">
-                <div>
-                  <label for="insumos">Valor insumos (R$)</label>
-                  <input id="insumos" type="number" step="0.01" min="0" />
-                </div>
-                <div>
-                  <label for="margem">Margem de lucro (%)</label>
-                  <input id="margem" type="number" step="1" min="0" />
-                </div>
+                <div><label for="insumos">Insumos (R$)</label><input id="insumos" type="number" step="0.01" min="0" /></div>
+                <div><label for="margem">Margem (%)</label><input id="margem" type="number" step="1" min="0" /></div>
               </div>
             </fieldset>
 
             <fieldset>
               <legend>Impressora</legend>
-              <label for="impressora">Impressora utilizada</label>
               <select id="impressora"></select>
             </fieldset>
 
             <fieldset>
               <legend>Projeto</legend>
               <div class="row">
-                <div>
-                  <label for="projetoId">ID do projeto</label>
-                  <input id="projetoId" type="text" readonly title="Gerado automaticamente" />
-                </div>
-                <div>
-                  <label for="qtdPecas">Quantidade de peças</label>
-                  <input id="qtdPecas" type="number" step="1" min="1" value="1" />
-                </div>
+                <div><label for="projetoId">ID</label><input id="projetoId" type="text" readonly /></div>
+                <div><label for="qtdPecas">Qtd peças</label><input id="qtdPecas" type="number" min="1" value="1" /></div>
               </div>
-              <p class="muted field-hint">
-                O ID é gerado automaticamente. Use a quantidade para lotes com várias peças iguais.
-              </p>
+              <label for="responsavel-projeto">Responsável pelo projeto</label>
+              <select id="responsavel-projeto"></select>
             </fieldset>
 
             <div class="actions">
               <button id="btn-criar" class="btn btn-primary">Criar custo</button>
-              <span id="save-msg" class="save-msg" role="status"></span>
+              <span id="save-msg" class="save-msg"></span>
             </div>
           </div>
 
-          <!-- Coluna de resultados -->
           <div class="card results">
             <h2>Resultado</h2>
             <ul class="breakdown">
-              <li><span>Custo do Filamento</span><b id="r-filamento">R$ 0,00</b></li>
-              <li><span>Custo de Energia</span><b id="r-energia">R$ 0,00</b></li>
+              <li><span>Custo Filamento</span><b id="r-filamento">R$ 0,00</b></li>
+              <li><span>Energia</span><b id="r-energia">R$ 0,00</b></li>
               <li><span>Mão de Obra</span><b id="r-maoobra">R$ 0,00</b></li>
-              <li><span>Custos Fixos (Manutenção)</span><b id="r-fixos">R$ 0,00</b></li>
+              <li><span>Manutenção</span><b id="r-fixos">R$ 0,00</b></li>
               <li><span>Insumos</span><b id="r-insumos">R$ 0,00</b></li>
             </ul>
-            <div class="total">
-              <span>CUSTO TOTAL</span><b id="r-total">R$ 0,00</b>
-            </div>
-
+            <h3>Detalhe por filamento</h3>
+            <ul class="breakdown" id="r-filamentos-detalhe"></ul>
+            <div class="total"><span>CUSTO TOTAL</span><b id="r-total">R$ 0,00</b></div>
             <div class="suggested">
-              <div>
-                <small>Preço sugerido (margem selecionada)</small>
-                <b id="r-preco">R$ 0,00</b>
-              </div>
-              <div>
-                <small>Lucro estimado</small>
-                <b id="r-lucro" class="profit">R$ 0,00</b>
-              </div>
+              <div><small>Preço sugerido</small><b id="r-preco">R$ 0,00</b></div>
+              <div><small>Lucro estimado</small><b id="r-lucro" class="profit">R$ 0,00</b></div>
             </div>
-
-            <h3>Tabela de margens</h3>
-            <table class="margens">
-              <thead>
-                <tr><th>Margem %</th><th>Preço sugerido</th><th>Lucro</th></tr>
-              </thead>
-              <tbody id="tabela-margens"></tbody>
-            </table>
+            <h3>Margens</h3>
+            <table class="margens"><thead><tr><th>%</th><th>Preço</th><th>Lucro</th></tr></thead><tbody id="tabela-margens"></tbody></table>
           </div>
         </div>
       </section>
 
-      <!-- ================= PROJETOS ================= -->
+      <!-- PROJETOS -->
       <section id="view-projetos" class="view">
         <div class="card">
-          <div class="card-head">
-            <h2>Projetos / Custos registrados</h2>
-            <button id="btn-recarregar" class="btn">Recarregar</button>
-          </div>
+          <div class="card-head"><h2>Projetos</h2><button id="btn-recarregar" class="btn">Recarregar</button></div>
           <p class="muted" id="projetos-info"></p>
           <div class="table-wrap">
             <table class="projetos">
-              <thead>
-                <tr>
-                  <th>Data</th><th>ID</th><th>Qtd</th><th>Impressora</th><th>Filamento</th>
-                  <th>Filamento R$</th><th>Energia R$</th><th>Mão de obra R$</th>
-                  <th>Manutenção R$</th><th>Insumos R$</th>
-                  <th>Custo total</th><th>Margem %</th><th>Preço sugerido</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>Data</th><th>ID</th><th>Qtd</th><th>Responsável</th><th>Impressora</th><th>Filamento</th>
+                <th>Fil. R$</th><th>Energia</th><th>M.O.</th><th>Manut.</th><th>Insumos</th><th>Total</th><th>Margem</th><th>Preço</th>
+              </tr></thead>
               <tbody id="projetos-body"></tbody>
             </table>
           </div>
         </div>
       </section>
 
-      <!-- ================= CONFIGURAÇÃO ================= -->
+      <!-- VENDAS -->
+      <section id="view-vendas" class="view">
+        <div class="grid-vendas">
+          <div class="card">
+            <h2>Registrar venda</h2>
+            <label for="venda-projeto">Projeto</label>
+            <select id="venda-projeto"></select>
+            <label for="venda-valor">Valor da venda (R$)</label>
+            <input id="venda-valor" type="number" step="0.01" min="0" />
+            <label for="venda-pagamento">Forma de pagamento</label>
+            <select id="venda-pagamento"></select>
+            <label for="venda-responsavel">Responsável pela venda</label>
+            <select id="venda-responsavel"></select>
+            <label for="venda-obs">Observações</label>
+            <textarea id="venda-obs" rows="3" placeholder="Informações adicionais…"></textarea>
+            <button id="btn-registrar-venda" class="btn btn-primary">Registrar venda</button>
+            <p id="venda-msg" class="save-msg"></p>
+
+            <hr class="divider" />
+            <h3>Saída fixa</h3>
+            <label for="saida-desc">Descrição</label>
+            <input id="saida-desc" type="text" placeholder="Ex.: Aluguel, energia fixa…" />
+            <label for="saida-valor">Valor (R$)</label>
+            <input id="saida-valor" type="number" step="0.01" min="0" />
+            <button id="btn-registrar-saida" class="btn">Registrar saída</button>
+            <p id="saida-msg" class="save-msg"></p>
+          </div>
+
+          <div class="card">
+            <h2>Financeiro</h2>
+            <div id="resumo-financeiro" class="fin-grid"></div>
+            <canvas id="chart-financeiro" height="220"></canvas>
+            <button id="btn-recarregar-vendas" class="btn">Atualizar</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h2>Vendas registradas</h2>
+          <p class="muted" id="vendas-info"></p>
+          <div class="table-wrap">
+            <table class="projetos">
+              <thead><tr><th>Data</th><th>Projeto</th><th>Valor</th><th>Pagamento</th><th>Vendedor</th><th>Resp. Projeto</th><th>Obs</th><th>Lucro</th></tr></thead>
+              <tbody id="vendas-body"></tbody>
+            </table>
+          </div>
+          <h3 style="margin-top:20px">Saídas fixas</h3>
+          <table class="projetos"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr></thead><tbody id="saidas-body"></tbody></table>
+        </div>
+      </section>
+
+      <!-- FILAMENTOS -->
+      <section id="view-filamentos" class="view">
+        <div class="card setup-card">
+          <h2>Cadastrar filamento novo</h2>
+          <p class="muted">O filamento aparecerá na calculadora após salvar na planilha.</p>
+          <label for="novo-fil-material">Nome do material</label>
+          <input id="novo-fil-material" type="text" placeholder="Ex.: Filamento PLA Verde" />
+          <label for="novo-fil-valor">Valor pago (R$/Kg)</label>
+          <input id="novo-fil-valor" type="number" step="0.01" min="0" />
+          <button id="btn-salvar-filamento" class="btn btn-primary">Adicionar à planilha</button>
+          <p id="fil-msg" class="save-msg"></p>
+        </div>
+      </section>
+
+      <!-- CONFIG -->
       <section id="view-config" class="view">
         <div class="card setup-card">
-          <h2>Conectar à planilha Google</h2>
-          <p class="muted">
-            O site (GitHub Pages) não pode gravar direto na planilha — seria preciso expor senhas
-            no código. O Apps Script funciona como uma ponte segura e gratuita na sua conta Google.
-          </p>
-
-          <div class="setup-alert">
-            <strong>Importante:</strong> ao implantar, escolha
-            <strong>"Quem tem acesso: Qualquer pessoa"</strong> (acesso anônimo).
-            Se escolher "com conta Google", o site dará erro de conexão.
-          </div>
-
-          <p class="muted">
-            Para gravar os custos na planilha, publique o backend (Google Apps Script) e cole a URL
-            do App da Web abaixo.
-          </p>
-
+          <h2>Conectar à planilha</h2>
+          <div class="setup-alert"><strong>Importante:</strong> Implantar como <strong>Qualquer pessoa</strong>.</div>
           <ol class="setup-steps">
-            <li>
-              Abra a planilha
-              <a id="link-planilha" href="#" target="_blank" rel="noopener">TNJ.3D — Gestão</a>.
-            </li>
-            <li>Menu <strong>Extensões → Apps Script</strong>.</li>
-            <li>
-              Apague o código padrão e cole o conteúdo de
-              <code>apps-script/Codigo.gs</code> (no repositório do projeto).
-            </li>
-            <li>
-              Clique em <strong>Implantar → Nova implantação</strong> → tipo
-              <strong>App da Web</strong>:
-              <ul>
-                <li>Executar como: <strong>Eu</strong></li>
-                <li>Quem tem acesso: <strong>Qualquer pessoa</strong></li>
-              </ul>
-            </li>
-            <li>Autorize e copie a URL que termina em <code>/exec</code> (não use a URL longa de <code>googleusercontent.com</code> que aparece ao abrir no navegador).</li>
-            <li>Cole a URL no campo abaixo e clique em <strong>Conectar</strong>.</li>
+            <li>Abra a <a id="link-planilha" href="#">planilha</a> → Extensões → Apps Script</li>
+            <li>Cole <code>apps-script/Codigo.gs</code> → Implantar → Nova versão</li>
+            <li>Cole a URL <code>/exec</code> abaixo</li>
           </ol>
-
-          <div class="setup-form">
-            <label for="api-url-input">URL do App da Web (API)</label>
-            <input
-              id="api-url-input"
-              type="url"
-              placeholder="https://script.google.com/macros/s/…/exec"
-              spellcheck="false"
-            />
-            <div class="setup-actions">
-              <button id="btn-conectar" class="btn btn-primary">Conectar</button>
-              <button id="btn-desconectar" class="btn" type="button">Desconectar</button>
-              <button id="btn-testar-api" class="btn" type="button">Testar conexão</button>
-            </div>
-            <p class="setup-msg" id="setup-msg"></p>
+          <input id="api-url-input" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
+          <div class="setup-actions">
+            <button id="btn-conectar" class="btn btn-primary">Conectar</button>
+            <button id="btn-desconectar" class="btn">Desconectar</button>
+            <button id="btn-testar-api" class="btn">Testar</button>
           </div>
-
-          <p class="muted setup-hint">
-            A URL também pode ser definida em <code>assets/js/config.js</code> (variável
-            <code>API_URL</code>) para publicação permanente no GitHub Pages.
-          </p>
+          <p id="setup-msg" class="setup-msg"></p>
         </div>
       </section>
     </main>
@@ -273,8 +211,10 @@
       <span id="mode-badge" class="badge">—</span>
     </footer>
 
-    <script src="assets/js/calc.js?v=6"></script>
-    <script src="assets/js/config.js?v=6"></script>
-    <script src="assets/js/app.js?v=7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="assets/js/calc.js?v=9"></script>
+    <script src="assets/js/config.js?v=9"></script>
+    <script src="assets/js/app.js?v=9"></script>
+    <script src="assets/js/vendas.js?v=9"></script>
   </body>
 </html>

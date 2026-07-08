@@ -1,4 +1,4 @@
-/* Wiring da interface TNJ.3D: carrega filamentos, calcula em tempo real e salva custos. */
+/* Wiring principal TNJ.3D */
 (function () {
   "use strict";
 
@@ -6,6 +6,7 @@
   const Calc = window.TNJCalc;
   const STORAGE_KEY = "tnj_api_url";
   const SEQ_KEY = "tnj_projeto_seq";
+  const MAX_FIL = cfg.MAX_FILAMENTOS || 4;
 
   function resolveApiUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -14,7 +15,7 @@
       try {
         localStorage.setItem(STORAGE_KEY, fromQuery);
       } catch {
-        /* localStorage indisponível */
+        /* ignore */
       }
       return fromQuery;
     }
@@ -24,73 +25,23 @@
       const fromStorage = (localStorage.getItem(STORAGE_KEY) || "").trim();
       if (fromStorage) return fromStorage;
     } catch {
-      /* localStorage indisponível */
+      /* ignore */
     }
     return "";
   }
 
   let API_URL = resolveApiUrl();
   let DEMO = API_URL === "";
-
-  const $ = (id) => document.getElementById(id);
-
-  const el = {
-    filamento: $("filamento"),
-    preco: $("precoFilamento"),
-    quantidade: $("quantidade"),
-    unidadeQuantidade: $("unidadeQuantidade"),
-    consumoW: $("consumoW"),
-    valorKwh: $("valorKwh"),
-    tempo: $("tempo"),
-    unidadeTempo: $("unidadeTempo"),
-    maoDeObra: $("maoDeObra"),
-    taxaManutencao: $("taxaManutencao"),
-    insumos: $("insumos"),
-    margem: $("margem"),
-    impressora: $("impressora"),
-    projetoId: $("projetoId"),
-    qtdPecas: $("qtdPecas"),
-    btnCriar: $("btn-criar"),
-    saveMsg: $("save-msg"),
-    // resultados
-    rFilamento: $("r-filamento"),
-    rEnergia: $("r-energia"),
-    rMaoobra: $("r-maoobra"),
-    rFixos: $("r-fixos"),
-    rInsumos: $("r-insumos"),
-    rTotal: $("r-total"),
-    rPreco: $("r-preco"),
-    rLucro: $("r-lucro"),
-    tabelaMargens: $("tabela-margens"),
-    // conexão
-    conn: $("conn-status"),
-    modeBadge: $("mode-badge"),
-    // projetos
-    projetosBody: $("projetos-body"),
-    projetosInfo: $("projetos-info"),
-    btnRecarregar: $("btn-recarregar"),
-    // configuração
-    linkPlanilha: $("link-planilha"),
-    apiUrlInput: $("api-url-input"),
-    btnConectar: $("btn-conectar"),
-    btnDesconectar: $("btn-desconectar"),
-    btnTestarApi: $("btn-testar-api"),
-    setupMsg: $("setup-msg"),
-  };
-
   let filamentos = [];
 
+  const $ = (id) => document.getElementById(id);
   const brl = (n) =>
     "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  /* --------------------- API --------------------- */
   const API_TIMEOUT_MS = 20000;
   const ERRO_CONEXAO =
-    "Não conectou. No Apps Script vá em Implantar → Gerenciar implantações → Editar → " +
-    'confirme "Quem tem acesso: Qualquer pessoa" (acesso anônimo, sem login Google). ' +
-    "Depois Nova versão → Implantar.";
+    'Falha de conexão. Confirme no Apps Script: "Quem tem acesso: Qualquer pessoa" e Nova versão.';
 
-  // JSONP: contorna bloqueio CORS do Apps Script no GitHub Pages.
   function apiJsonp(action, extraParams) {
     return new Promise((resolve, reject) => {
       const cb = "_tnjCb" + Date.now();
@@ -99,18 +50,15 @@
         cleanup();
         reject(new Error(ERRO_CONEXAO));
       }, API_TIMEOUT_MS);
-
       function cleanup() {
         clearTimeout(timer);
         delete window[cb];
         if (script && script.parentNode) script.remove();
       }
-
       window[cb] = (data) => {
         cleanup();
         resolve(data);
       };
-
       script = document.createElement("script");
       const u = new URL(API_URL);
       u.searchParams.set("action", action);
@@ -134,18 +82,13 @@
         headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
         body: "payload=" + encodeURIComponent(payload),
       },
-      {
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: payload,
-      },
+      { headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: payload },
     ];
-
     let lastErr;
     for (const req of attempts) {
       try {
         const res = await fetch(API_URL, { method: "POST", ...req });
-        const text = await res.text();
-        return JSON.parse(text);
+        return JSON.parse(await res.text());
       } catch (e) {
         lastErr = e;
       }
@@ -153,286 +96,199 @@
     throw lastErr || new Error(ERRO_CONEXAO);
   }
 
-  async function fetchFilamentos() {
-    if (DEMO) return cfg.FILAMENTOS_DEMO.slice();
-    const data = await apiJsonp("filamentos");
-    if (!data.ok) throw new Error(data.error || "Falha ao carregar filamentos");
-    return data.filamentos;
-  }
-
-  async function fetchProjetos() {
-    if (DEMO) return [];
-    const data = await apiJsonp("projetos");
-    if (!data.ok) throw new Error(data.error || "Falha ao carregar projetos");
-    return data.projetos;
-  }
-
-  async function fetchProximoId() {
-    if (DEMO) return gerarIdLocal();
-    const data = await apiJsonp("proximoId");
-    if (!data.ok) throw new Error(data.error || "Falha ao gerar ID");
-    return data.projetoId;
-  }
-
-  function hojeCompacto() {
-    const d = new Date();
-    const p = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
-  }
-
-  function gerarIdLocal() {
-    const hoje = hojeCompacto();
-    const chave = `${SEQ_KEY}_${hoje}`;
-    let seq = Number(localStorage.getItem(chave) || "0") + 1;
-    localStorage.setItem(chave, String(seq));
-    const prefixo = cfg.PREFIXO_PROJETO || "PRJ";
-    return `${prefixo}-${hoje}-${String(seq).padStart(3, "0")}`;
-  }
-
-  async function atualizarProjetoId() {
-    try {
-      el.projetoId.value = await fetchProximoId();
-    } catch (e) {
-      el.projetoId.value = gerarIdLocal();
-      console.warn("Usando ID local:", e);
-    }
-  }
-
-  function preencherImpressoras() {
-    const lista = cfg.IMPRESSORAS || [];
-    el.impressora.innerHTML = "";
-    lista.forEach((imp, i) => {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = imp.nome;
-      el.impressora.appendChild(opt);
-    });
-    aoSelecionarImpressora();
-  }
-
-  function aoSelecionarImpressora() {
-    const imp = (cfg.IMPRESSORAS || [])[Number(el.impressora.value)];
-    if (imp && imp.consumoW) {
-      el.consumoW.value = imp.consumoW;
-      recalcular();
-    }
-  }
-
-  function impressoraSelecionada() {
-    const imp = (cfg.IMPRESSORAS || [])[Number(el.impressora.value)];
-    return imp ? imp.nome : "";
-  }
-
-  async function salvarCusto(payload) {
+  async function apiGravar(body) {
     if (DEMO) {
       await new Promise((r) => setTimeout(r, 300));
       return { ok: true, demo: true };
     }
-    const json = JSON.stringify(payload);
-    // JSONP evita CORS no GitHub Pages; POST só como fallback.
-    if (json.length <= 1800) {
-      return apiJsonp("gravar", { payload: json });
-    }
-    return apiPost(payload);
+    const json = JSON.stringify(body);
+    if (json.length <= 7500) return apiJsonp("gravar", { payload: json });
+    return apiPost(body);
   }
 
-  function showSetup(msg, cls) {
-    el.setupMsg.textContent = msg;
-    el.setupMsg.className = "setup-msg " + (cls || "");
-  }
+  window.TNJApi = {
+    isDemo: () => DEMO,
+    jsonp: apiJsonp,
+    gravar: apiGravar,
+    fetchProjetos: async () => {
+      if (DEMO) return [];
+      const data = await apiJsonp("projetos");
+      if (!data.ok) throw new Error(data.error);
+      return data.projetos;
+    },
+  };
 
-  function normalizarApiUrl(raw) {
-    const url = (raw || "").trim();
-    if (!url) return "";
-    if (/script\.googleusercontent\.com/i.test(url)) {
-      throw new Error(
-        "Não use a URL de redirecionamento (googleusercontent.com). " +
-          "Cole a URL original que termina em /exec (script.google.com/macros/s/.../exec)."
-      );
-    }
-    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)) {
-      throw new Error("URL inválida. Deve começar com https://script.google.com/macros/s/ e terminar em /exec");
-    }
-    return url;
-  }
-
-  function salvarApiUrl(raw) {
-    const url = normalizarApiUrl(raw);
-    localStorage.setItem(STORAGE_KEY, url);
-    API_URL = url;
-    DEMO = false;
-    return url;
-  }
-
-  function limparApiUrl() {
-    localStorage.removeItem(STORAGE_KEY);
-    API_URL = (cfg.API_URL || "").trim();
-    DEMO = API_URL === "";
-  }
-
-  async function testarConexao(url) {
-    const testUrl = url || API_URL;
-    if (!testUrl) throw new Error("Informe a URL do App da Web.");
-    normalizarApiUrl(testUrl);
-    const prev = API_URL;
-    API_URL = testUrl;
-    try {
-      const data = await apiJsonp("filamentos");
-      if (!data.ok) throw new Error(data.error || "Resposta inválida da API");
-      return data.filamentos || [];
-    } finally {
-      API_URL = prev;
-    }
-  }
-
-  function initConfig() {
-    if (cfg.PLANILHA_URL && el.linkPlanilha) {
-      el.linkPlanilha.href = cfg.PLANILHA_URL;
-    }
-    if (el.apiUrlInput) {
-      el.apiUrlInput.value = API_URL;
-    }
-    if (!DEMO) {
-      showSetup("Conectado à planilha.", "ok");
-    }
-  }
-
-  async function conectarApi() {
-    try {
-      const url = salvarApiUrl(el.apiUrlInput.value);
-      showSetup("Testando conexão…", "");
-      el.btnConectar.disabled = true;
-      const lista = await testarConexao(url);
-      showSetup(`Conectado! ${lista.length} filamento(s) carregado(s) da planilha.`, "ok");
-      setTimeout(() => location.reload(), 800);
-    } catch (e) {
-      limparApiUrl();
-      showSetup("Erro: " + e.message, "err");
-    } finally {
-      el.btnConectar.disabled = false;
-    }
-  }
-
-  function desconectarApi() {
-    limparApiUrl();
-    showSetup("API removida do navegador. Recarregando…", "");
-    setTimeout(() => location.reload(), 400);
-  }
-
-  async function testarApi() {
-    try {
-      el.btnTestarApi.disabled = true;
-      showSetup("Testando…", "");
-      const url = normalizarApiUrl(el.apiUrlInput.value || API_URL);
-      const lista = await testarConexao(url);
-      showSetup(`OK — API respondeu com ${lista.length} filamento(s).`, "ok");
-    } catch (e) {
-      showSetup("Falha no teste: " + e.message, "err");
-    } finally {
-      el.btnTestarApi.disabled = false;
-    }
-  }
-
-  function initConfigEvents() {
-    if (el.btnConectar) el.btnConectar.addEventListener("click", conectarApi);
-    if (el.btnDesconectar) el.btnDesconectar.addEventListener("click", desconectarApi);
-    if (el.btnTestarApi) el.btnTestarApi.addEventListener("click", testarApi);
-  }
-
-  /* --------------------- UI helpers --------------------- */
-  function setConn(state, label) {
-    el.conn.className = "conn " + state;
-    el.conn.querySelector(".conn-label").textContent = label;
-    el.modeBadge.textContent = DEMO ? "MODO DEMONSTRAÇÃO" : "CONECTADO À PLANILHA";
-  }
-
-  function preencherPadroes() {
-    const p = cfg.PADROES;
-    el.consumoW.value = p.consumoW;
-    el.valorKwh.value = p.valorKwh;
-    el.maoDeObra.value = p.maoDeObra;
-    el.taxaManutencao.value = p.taxaManutencaoHora;
-    el.insumos.value = p.insumos;
-    el.margem.value = p.margem;
-  }
-
-  function preencherFilamentos(lista) {
-    filamentos = lista;
-    el.filamento.innerHTML = "";
-    lista.forEach((f, i) => {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = `${f.material} — ${brl(f.valor)}/Kg`;
-      el.filamento.appendChild(opt);
+  function optionsFilamentos(sel) {
+    sel.innerHTML = "";
+    filamentos.forEach((f, i) => {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = `${f.material} — ${brl(f.valor)}/Kg`;
+      sel.appendChild(o);
     });
-    aoSelecionarFilamento();
   }
 
-  function aoSelecionarFilamento() {
-    const f = filamentos[Number(el.filamento.value)];
-    if (f) el.preco.value = Number(f.valor).toFixed(2);
+  function buildFilamentSlots() {
+    const wrap = $("filamentos-slots");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    for (let i = 0; i < MAX_FIL; i++) {
+      const div = document.createElement("div");
+      div.className = "fil-slot" + (i > 0 ? " fil-slot-extra" : "");
+      div.dataset.idx = String(i);
+      div.innerHTML = `
+        <div class="fil-slot-head">
+          <label><input type="checkbox" class="fil-ativo" ${i === 0 ? "checked" : ""}/> Filamento ${i + 1}</label>
+        </div>
+        <label>Material</label>
+        <select class="fil-select"></select>
+        <div class="row">
+          <div><label>Preço (R$/Kg)</label><input class="fil-preco" type="number" step="0.01" min="0"/></div>
+          <div><label>Quantidade</label><div class="input-unit">
+            <input class="fil-qtd" type="number" step="0.01" min="0" value="${i === 0 ? "1.14" : "0"}"/>
+            <select class="fil-un-qtd"><option value="g" selected>g</option><option value="kg">Kg</option></select>
+          </div></div>
+        </div>
+        <div class="row">
+          <div><label>Tempo impressão</label><div class="input-unit">
+            <input class="fil-tempo" type="number" step="0.01" min="0" value="${i === 0 ? "0.12" : "0"}"/>
+            <select class="fil-un-tempo"><option value="h" selected>horas</option><option value="min">min</option></select>
+          </div></div>
+        </div>`;
+      wrap.appendChild(div);
+      const sel = div.querySelector(".fil-select");
+      optionsFilamentos(sel);
+      sel.addEventListener("change", () => onFilSelect(div));
+      div.querySelectorAll("input,select").forEach((n) => n.addEventListener("input", recalcular));
+      div.querySelector(".fil-ativo").addEventListener("change", recalcular);
+      if (i === 0) onFilSelect(div);
+    }
+  }
+
+  function onFilSelect(slot) {
+    const f = filamentos[Number(slot.querySelector(".fil-select").value)];
+    if (f) slot.querySelector(".fil-preco").value = Number(f.valor).toFixed(2);
     recalcular();
+  }
+
+  function lerFilamentosSlots() {
+    const lista = [];
+    document.querySelectorAll(".fil-slot").forEach((slot) => {
+      const ativo = slot.querySelector(".fil-ativo").checked;
+      if (!ativo) return;
+      const idx = Number(slot.querySelector(".fil-select").value);
+      const f = filamentos[idx];
+      lista.push({
+        ativo: true,
+        material: f ? f.material : "",
+        precoFilamentoKg: slot.querySelector(".fil-preco").value,
+        quantidade: slot.querySelector(".fil-qtd").value,
+        unidadeQuantidade: slot.querySelector(".fil-un-qtd").value,
+        tempo: slot.querySelector(".fil-tempo").value,
+        unidadeTempo: slot.querySelector(".fil-un-tempo").value,
+      });
+    });
+    return lista;
   }
 
   function lerEntradas() {
     return {
-      precoFilamentoKg: el.preco.value,
-      quantidade: el.quantidade.value,
-      unidadeQuantidade: el.unidadeQuantidade.value,
-      consumoW: el.consumoW.value,
-      valorKwh: el.valorKwh.value,
-      tempo: el.tempo.value,
-      unidadeTempo: el.unidadeTempo.value,
-      maoDeObra: el.maoDeObra.value,
-      taxaManutencaoHora: el.taxaManutencao.value,
-      insumos: el.insumos.value,
-      margem: el.margem.value,
-      quantidadePecas: el.qtdPecas.value,
+      filamentos: lerFilamentosSlots(),
+      consumoW: $("consumoW").value,
+      valorKwh: $("valorKwh").value,
+      maoDeObra: $("maoDeObra").value,
+      taxaManutencaoHora: $("taxaManutencao").value,
+      insumos: $("insumos").value,
+      margem: $("margem").value,
+      quantidadePecas: $("qtdPecas").value,
     };
   }
 
   function recalcular() {
     const r = Calc.calcular(lerEntradas());
-    el.rFilamento.textContent = brl(r.custos.filamento);
-    el.rEnergia.textContent = brl(r.custos.energia);
-    el.rMaoobra.textContent = brl(r.custos.maoDeObra);
-    el.rFixos.textContent = brl(r.custos.custosFixos);
-    el.rInsumos.textContent = brl(r.custos.insumos);
-    el.rTotal.textContent = brl(r.custoTotal);
-    el.rPreco.textContent = brl(r.precoSugerido);
-    el.rLucro.textContent = brl(r.lucroEstimado);
+    $("r-filamento").textContent = brl(r.custos.filamento);
+    $("r-energia").textContent = brl(r.custos.energia);
+    $("r-maoobra").textContent = brl(r.custos.maoDeObra);
+    $("r-fixos").textContent = brl(r.custos.custosFixos);
+    $("r-insumos").textContent = brl(r.custos.insumos);
+    $("r-total").textContent = brl(r.custoTotal);
+    $("r-preco").textContent = brl(r.precoSugerido);
+    $("r-lucro").textContent = brl(r.lucroEstimado);
 
-    el.tabelaMargens.innerHTML = "";
+    const det = $("r-filamentos-detalhe");
+    if (det) {
+      det.innerHTML = r.filamentos
+        .map(
+          (f) =>
+            `<li><span>${f.material || "—"}</span><span>${f.gramas}g · ${f.horas.toFixed(2)}h · ${brl(f.custoUnitario)}</span></li>`
+        )
+        .join("");
+    }
+
+    const tb = $("tabela-margens");
+    tb.innerHTML = "";
     r.tabelaMargens.forEach((m) => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${m.margem}%</td><td>${brl(m.precoSugerido)}</td><td>${brl(
-        m.lucroEstimado
-      )}</td>`;
-      el.tabelaMargens.appendChild(tr);
+      tr.innerHTML = `<td>${m.margem}%</td><td>${brl(m.precoSugerido)}</td><td>${brl(m.lucroEstimado)}</td>`;
+      tb.appendChild(tr);
     });
     return r;
   }
 
+  async function fetchFilamentos() {
+    if (DEMO) return cfg.FILAMENTOS_DEMO.slice();
+    const data = await apiJsonp("filamentos");
+    if (!data.ok) throw new Error(data.error);
+    return data.filamentos;
+  }
+
+  async function recarregarFilamentos() {
+    filamentos = await fetchFilamentos();
+    document.querySelectorAll(".fil-select").forEach((sel) => optionsFilamentos(sel));
+    recalcular();
+  }
+
+  window.TNJApp = { recarregarFilamentos };
+
+  function gerarIdLocal() {
+    const hoje = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    const d = `${hoje.getFullYear()}${p(hoje.getMonth() + 1)}${p(hoje.getDate())}`;
+    const chave = `${SEQ_KEY}_${d}`;
+    const seq = Number(localStorage.getItem(chave) || "0") + 1;
+    localStorage.setItem(chave, String(seq));
+    return `${cfg.PREFIXO_PROJETO || "PRJ"}-${d}-${String(seq).padStart(3, "0")}`;
+  }
+
+  async function atualizarProjetoId() {
+    try {
+      if (DEMO) throw new Error("demo");
+      const data = await apiJsonp("proximoId");
+      $("projetoId").value = data.projetoId;
+    } catch {
+      $("projetoId").value = gerarIdLocal();
+    }
+  }
+
   async function criarCusto() {
-    const id = el.projetoId.value.trim();
+    const id = $("projetoId").value.trim();
     if (!id) {
       await atualizarProjetoId();
-      showSave("Gerando ID do projeto…", "");
       return;
     }
     const r = recalcular();
-    const f = filamentos[Number(el.filamento.value)];
     const payload = {
       projetoId: id,
       quantidadePecas: r.quantidadePecas,
-      impressora: impressoraSelecionada(),
-      filamento: f ? f.material : "",
-      precoFilamentoKg: Calc.toNumber(el.preco.value),
+      impressora: $("impressora").selectedOptions[0]?.textContent || "",
+      responsavelProjeto: $("responsavel-projeto").value,
+      filamento: r.filamentoResumo,
+      filamentos: r.filamentos,
       quantidadeG: r.gramas,
       horas: r.horas,
-      consumoW: Calc.toNumber(el.consumoW.value),
-      valorKwh: Calc.toNumber(el.valorKwh.value),
-      taxaManutencaoHora: Calc.toNumber(el.taxaManutencao.value),
+      consumoW: Calc.toNumber($("consumoW").value),
+      valorKwh: Calc.toNumber($("valorKwh").value),
+      taxaManutencaoHora: Calc.toNumber($("taxaManutencao").value),
       margem: r.margem,
       custos: r.custos,
       custosUnitarios: r.custosUnitarios,
@@ -442,75 +298,61 @@
       lucroEstimado: r.lucroEstimado,
     };
 
-    el.btnCriar.disabled = true;
-    showSave("Salvando…", "");
+    $("btn-criar").disabled = true;
+    $("save-msg").textContent = "Salvando…";
     try {
-      const resp = await salvarCusto(payload);
+      const resp = await apiGravar(payload);
       if (resp && resp.ok) {
-        showSave(
-          resp.demo
-            ? `Custo calculado (${id}, ${r.quantidadePecas} peça(s)) — modo demonstração.`
-            : `Custo ${id} gravado na planilha (${r.quantidadePecas} peça(s))!`,
-          "ok"
-        );
-        el.qtdPecas.value = "1";
+        $("save-msg").textContent = resp.demo
+          ? `Custo ${id} calculado (demo).`
+          : `Custo ${id} gravado na planilha!`;
+        $("save-msg").className = "save-msg ok";
+        $("qtdPecas").value = "1";
         await atualizarProjetoId();
-        if (!DEMO) carregarProjetos();
       } else {
-        showSave("Erro: " + (resp && resp.error ? resp.error : "desconhecido"), "err");
+        $("save-msg").textContent = "Erro: " + (resp?.error || "desconhecido");
+        $("save-msg").className = "save-msg err";
       }
     } catch (e) {
-      showSave("Falha ao salvar: " + e.message, "err");
+      $("save-msg").textContent = "Falha ao salvar: " + e.message;
+      $("save-msg").className = "save-msg err";
     } finally {
-      el.btnCriar.disabled = false;
+      $("btn-criar").disabled = false;
     }
-  }
-
-  function showSave(msg, cls) {
-    el.saveMsg.textContent = msg;
-    el.saveMsg.className = "save-msg " + (cls || "");
   }
 
   async function carregarProjetos() {
+    const info = $("projetos-info");
     if (DEMO) {
-      el.projetosInfo.textContent =
-        "Modo demonstração: conecte a API (Apps Script) para listar os projetos gravados na planilha.";
+      info.textContent = "Modo demonstração.";
       return;
     }
-    el.projetosInfo.textContent = "Carregando…";
     try {
-      const lista = await fetchProjetos();
-      el.projetosBody.innerHTML = "";
+      const lista = await apiJsonp("projetos").then((d) => d.projetos || []);
+      $("projetos-body").innerHTML = "";
       lista.forEach((p) => {
         const tr = document.createElement("tr");
         tr.innerHTML = [
-          p.data || "",
-          p.projetoId || "",
-          p.quantidadePecas || 1,
-          p.impressora || "",
-          p.filamento || "",
-          brl(p.custoFilamento || 0),
-          brl(p.custoEnergia || 0),
-          brl(p.maoDeObra || 0),
-          brl(p.custosFixos || 0),
-          brl(p.insumos || 0),
-          brl(p.custoTotal || 0),
-          (p.margem || 0) + "%",
-          brl(p.precoSugerido || 0),
-        ]
-          .map((c) => `<td>${c}</td>`)
-          .join("");
-        el.projetosBody.appendChild(tr);
+          p.data, p.projetoId, p.quantidadePecas || 1, p.responsavelProjeto || "",
+          p.impressora || "", p.filamento || "",
+          brl(p.custoFilamento), brl(p.custoEnergia), brl(p.maoDeObra),
+          brl(p.custosFixos), brl(p.insumos), brl(p.custoTotal),
+          (p.margem || 0) + "%", brl(p.precoSugerido),
+        ].map((c) => `<td>${c}</td>`).join("");
+        $("projetos-body").appendChild(tr);
       });
-      el.projetosInfo.textContent = lista.length
-        ? `${lista.length} projeto(s) registrado(s).`
-        : "Nenhum projeto registrado ainda.";
+      info.textContent = lista.length ? `${lista.length} projeto(s).` : "Nenhum projeto.";
     } catch (e) {
-      el.projetosInfo.textContent = "Erro ao carregar: " + e.message;
+      info.textContent = "Erro: " + e.message;
     }
   }
 
-  /* --------------------- Navegação --------------------- */
+  function setConn(state, label) {
+    $("conn-status").className = "conn " + state;
+    $("conn-status").querySelector(".conn-label").textContent = label;
+    $("mode-badge").textContent = DEMO ? "MODO DEMONSTRAÇÃO" : "CONECTADO À PLANILHA";
+  }
+
   function initTabs() {
     document.querySelectorAll(".tab").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -518,51 +360,92 @@
         document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
         btn.classList.add("active");
         $("view-" + btn.dataset.view).classList.add("active");
-        if (btn.dataset.view === "projetos") carregarProjetos();
+        const v = btn.dataset.view;
+        if (v === "projetos") carregarProjetos();
+        if (v === "vendas" && window.TNJVendas) window.TNJVendas.onShowVendas();
       });
     });
   }
 
-  function initEvents() {
-    el.filamento.addEventListener("change", aoSelecionarFilamento);
-    el.impressora.addEventListener("change", aoSelecionarImpressora);
-    [
-      "preco",
-      "quantidade",
-      "unidadeQuantidade",
-      "consumoW",
-      "valorKwh",
-      "tempo",
-      "unidadeTempo",
-      "maoDeObra",
-      "taxaManutencao",
-      "insumos",
-      "margem",
-      "qtdPecas",
-    ].forEach((k) => el[k].addEventListener("input", recalcular));
-    el.btnCriar.addEventListener("click", criarCusto);
-    el.btnRecarregar.addEventListener("click", carregarProjetos);
+  function initConfig() {
+    if (cfg.PLANILHA_URL) $("link-planilha").href = cfg.PLANILHA_URL;
+    if ($("api-url-input")) $("api-url-input").value = API_URL;
+    const logo = $("brand-logo-img");
+    if (logo && cfg.LOGO) logo.src = cfg.LOGO;
   }
 
-  /* --------------------- Bootstrap --------------------- */
+  async function conectarApi() {
+    const url = ($("api-url-input").value || "").trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)) {
+      $("setup-msg").textContent = "URL inválida.";
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, url);
+    location.reload();
+  }
+
   async function init() {
-    preencherPadroes();
-    preencherImpressoras();
+    const p = cfg.PADROES;
+    $("consumoW").value = p.consumoW;
+    $("valorKwh").value = p.valorKwh;
+    $("maoDeObra").value = p.maoDeObra;
+    $("taxaManutencao").value = p.taxaManutencaoHora;
+    $("insumos").value = p.insumos;
+    $("margem").value = p.margem;
+
+    (cfg.IMPRESSORAS || []).forEach((imp, i) => {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = imp.nome;
+      $("impressora").appendChild(o);
+    });
+    $("impressora").addEventListener("change", () => {
+      const imp = cfg.IMPRESSORAS[Number($("impressora").value)];
+      if (imp) $("consumoW").value = imp.consumoW;
+      recalcular();
+    });
+
+    buildFilamentSlots();
     initTabs();
-    initEvents();
     initConfig();
-    initConfigEvents();
+    if (window.TNJVendas) window.TNJVendas.initVendas();
+
+    ["consumoW", "valorKwh", "maoDeObra", "taxaManutencao", "insumos", "margem", "qtdPecas"].forEach(
+      (id) => $(id).addEventListener("input", recalcular)
+    );
+    $("btn-criar").addEventListener("click", criarCusto);
+    $("btn-recarregar").addEventListener("click", carregarProjetos);
+    $("btn-conectar")?.addEventListener("click", conectarApi);
+    $("btn-desconectar")?.addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    });
+    $("btn-testar-api")?.addEventListener("click", async () => {
+      try {
+        const data = await apiJsonp("filamentos");
+        $("setup-msg").textContent = `OK — ${(data.filamentos || []).length} filamento(s).`;
+        $("setup-msg").className = "setup-msg ok";
+      } catch (e) {
+        $("setup-msg").textContent = "Falha: " + e.message;
+        $("setup-msg").className = "save-msg err";
+      }
+    });
+
     setConn(DEMO ? "demo" : "ok", DEMO ? "modo demonstração" : "conectando…");
     await atualizarProjetoId();
     try {
-      const lista = await fetchFilamentos();
-      preencherFilamentos(lista);
+      filamentos = await fetchFilamentos();
+      document.querySelectorAll(".fil-select").forEach((sel) => optionsFilamentos(sel));
+      document.querySelectorAll(".fil-slot").forEach((slot, i) => {
+        if (i === 0) onFilSelect(slot);
+      });
       if (!DEMO) setConn("ok", "conectado");
-    } catch (e) {
-      preencherFilamentos(cfg.FILAMENTOS_DEMO.slice());
-      setConn("err", "API indisponível — usando lista local");
-      console.error(e);
+    } catch {
+      filamentos = cfg.FILAMENTOS_DEMO.slice();
+      document.querySelectorAll(".fil-select").forEach((sel) => optionsFilamentos(sel));
+      setConn("err", "API indisponível");
     }
+    recalcular();
   }
 
   document.addEventListener("DOMContentLoaded", init);

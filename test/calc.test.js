@@ -85,3 +85,38 @@ test("quantidade de peças multiplica o custo total do lote", () => {
   assert.strictEqual(r.custoTotalUnitario, 10.26);
   assert.strictEqual(r.custoTotal, 30.79);
 });
+
+test("múltiplos filamentos somam custos e tempos", () => {
+  const r = Calc.calcular({
+    filamentos: [
+      {
+        ativo: true,
+        material: "PLA",
+        precoFilamentoKg: 100,
+        quantidade: 10,
+        unidadeQuantidade: "g",
+        tempo: 1,
+        unidadeTempo: "h",
+      },
+      {
+        ativo: true,
+        material: "PETG",
+        precoFilamentoKg: 80,
+        quantidade: 5,
+        unidadeQuantidade: "g",
+        tempo: 0.5,
+        unidadeTempo: "h",
+      },
+    ],
+    consumoW: 200,
+    valorKwh: 0.85,
+    maoDeObra: 0,
+    taxaManutencaoHora: 0,
+    insumos: 0,
+    margem: 0,
+  });
+  assert.strictEqual(r.filamentos.length, 2);
+  assert.strictEqual(r.custos.filamento, 1.4); // 1.00 + 0.40
+  assert.strictEqual(r.horas, 1.5);
+  assert.strictEqual(r.filamentoResumo, "PLA + PETG");
+});

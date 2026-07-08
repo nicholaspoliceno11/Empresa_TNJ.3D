@@ -1,22 +1,12 @@
 /**
  * TNJ.3D — Backend (Google Apps Script) para o site de gestão/calculadora.
  *
- * Este script deve ficar VINCULADO à planilha "TNJ.3D - GESTÃO"
- * (abra a planilha › Extensões › Apps Script › cole este código).
- *
  * Publicação: Implantar › Nova implantação › Tipo "App da Web"
  *   - Executar como: Eu (você)
  *   - Quem tem acesso: Qualquer pessoa
- * Copie a URL /exec gerada e cole em assets/js/config.js (API_URL).
  *
- * Endpoints (use POST com Content-Type text/plain — evita bloqueio CORS no site):
- *   POST { action: "filamentos" }  -> lista da aba "Filamentos"
- *   POST { action: "projetos" }    -> registros da aba "Projetos"
- *   POST { action: "proximoId" }   -> próximo código automático de projeto
- *   POST {json do custo}           -> grava o custo (sem campo action)
- *
- *   GET  ?action=inicializar   -> cria todas as abas com cabeçalhos (rode uma vez)
- *   GET  ?action=gravar&payload={json} -> grava custo (usado pelo site via JSONP)
+ * GET (JSONP): filamentos, projetos, proximoId, vendas, saidas, financeiro,
+ *              inicializar, gravar (payload JSON)
  */
 
 var ABA_FILAMENTOS = "Filamentos";
@@ -26,32 +16,31 @@ var ABA_ENERGIA = "Energia";
 var ABA_MAO_DE_OBRA = "Mão de Obra";
 var ABA_MANUTENCAO = "Manutenção";
 var ABA_INSUMOS = "Insumos";
+var ABA_VENDAS = "Vendas";
+var ABA_SAIDAS = "Saídas Fixas";
 var PREFIXO_PROJETO = "PRJ";
 
 var CABECALHO_PROJETOS = [
-  "Data", "ID", "Qtd Peças", "Impressora", "Filamento", "Custo Filamento", "Custo Energia",
-  "Mão de Obra", "Custos Fixos", "Insumos", "Custo Total", "Custo Unitário",
-  "Margem %", "Preço Sugerido", "Lucro Estimado",
+  "Data", "ID", "Qtd Peças", "Responsável", "Impressora", "Filamento",
+  "Custo Filamento", "Custo Energia", "Mão de Obra", "Custos Fixos", "Insumos",
+  "Custo Total", "Custo Unitário", "Margem %", "Preço Sugerido", "Lucro Estimado",
 ];
+
+var CABECALHO_FIL_CUSTO = [
+  "Data", "ID", "Qtd Peças", "Slot", "Filamento", "Preço/Kg", "Qtd (g)", "Tempo (h)", "Custo",
+];
+
+var CABECALHO_VENDAS = [
+  "Data", "ID Projeto", "Valor Venda", "Forma Pagamento", "Responsável Venda",
+  "Responsável Projeto", "Observações", "Custo Total", "Lucro",
+];
+
+var CABECALHO_SAIDAS = ["Data", "Descrição", "Valor"];
 
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "filamentos";
-    var result;
-    if (action === "filamentos") {
-      result = { ok: true, filamentos: lerFilamentos() };
-    } else if (action === "projetos") {
-      result = { ok: true, projetos: lerProjetos() };
-    } else if (action === "proximoId") {
-      result = { ok: true, projetoId: proximoProjetoId() };
-    } else if (action === "inicializar") {
-      result = { ok: true, abas: inicializarAbas() };
-    } else if (action === "gravar") {
-      var dados = JSON.parse(e.parameter.payload);
-      result = { ok: true, resultado: gravarCusto(dados) };
-    } else {
-      result = { ok: false, error: "Ação desconhecida: " + action };
-    }
+    var result = rotearAcao(action, e);
     return outputJson(result, e);
   } catch (err) {
     return outputJson({ ok: false, error: String(err) }, e);
@@ -61,21 +50,64 @@ function doGet(e) {
 function doPost(e) {
   try {
     var payload = parsePayload(e);
-    var action = payload.action;
-    if (action === "filamentos") {
-      return json({ ok: true, filamentos: lerFilamentos() });
-    }
-    if (action === "projetos") {
-      return json({ ok: true, projetos: lerProjetos() });
-    }
-    if (action === "proximoId") {
-      return json({ ok: true, projetoId: proximoProjetoId() });
-    }
-    var resultado = gravarCusto(payload);
-    return json({ ok: true, resultado: resultado });
+    var action = payload.action || "gravar";
+    var result = rotearAcao(action, null, payload);
+    return json(result);
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
+}
+
+function rotearAcao(action, e, payload) {
+  if (action === "filamentos") {
+    return { ok: true, filamentos: lerFilamentos() };
+  }
+  if (action === "projetos") {
+    return { ok: true, projetos: lerProjetos() };
+  }
+  if (action === "proximoId") {
+    return { ok: true, projetoId: proximoProjetoId() };
+  }
+  if (action === "vendas") {
+    return { ok: true, vendas: lerVendas() };
+  }
+  if (action === "saidas") {
+    return { ok: true, saidas: lerSaidas() };
+  }
+  if (action === "financeiro") {
+    return { ok: true, resumo: calcularFinanceiro() };
+  }
+  if (action === "inicializar") {
+    return { ok: true, abas: inicializarAbas() };
+  }
+  if (action === "gravar") {
+    var dados = payload || JSON.parse(e.parameter.payload);
+    return processarGravar(dados);
+  }
+  if (action === "gravarVenda") {
+    return { ok: true, resultado: gravarVenda(payload) };
+  }
+  if (action === "gravarSaida") {
+    return { ok: true, resultado: gravarSaida(payload) };
+  }
+  if (action === "adicionarFilamento") {
+    return { ok: true, resultado: adicionarFilamento(payload) };
+  }
+  return { ok: false, error: "Ação desconhecida: " + action };
+}
+
+function processarGravar(dados) {
+  var acao = dados.action;
+  if (acao === "gravarVenda") {
+    return { ok: true, resultado: gravarVenda(dados) };
+  }
+  if (acao === "gravarSaida") {
+    return { ok: true, resultado: gravarSaida(dados) };
+  }
+  if (acao === "adicionarFilamento") {
+    return { ok: true, resultado: adicionarFilamento(dados) };
+  }
+  return { ok: true, resultado: gravarCusto(dados) };
 }
 
 function parsePayload(e) {
@@ -93,7 +125,6 @@ function lerFilamentos() {
   var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
   var valores = sheet.getDataRange().getValues();
   var lista = [];
-  // Assume cabeçalho na linha 1: Material | Valor | QTD
   for (var i = 1; i < valores.length; i++) {
     var material = valores[i][0];
     var valor = valores[i][1];
@@ -103,20 +134,46 @@ function lerFilamentos() {
   return lista;
 }
 
+function detectarFormatoProjetos(cab) {
+  if (!cab || cab.length < 3) return "antigo";
+  if (String(cab[2]) === "Qtd Peças" && String(cab[3]) === "Responsável") return "comResp";
+  if (String(cab[2]) === "Qtd Peças") return "qtd";
+  return "antigo";
+}
+
 function lerProjetos() {
   var sheet = obterAba(ABA_PROJETOS, null, false);
   if (!sheet) return [];
   var valores = sheet.getDataRange().getValues();
+  if (valores.length < 2) return [];
+  var formato = detectarFormatoProjetos(valores[0]);
   var lista = [];
-  var novoFormato = valores.length > 0 && String(valores[0][2] || "") === "Qtd Peças";
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
-    if (!r[1]) continue; // sem ID
-    if (novoFormato) {
+    if (!r[1]) continue;
+    if (formato === "comResp") {
       lista.push({
         data: formatarData(r[0]),
         projetoId: String(r[1]),
         quantidadePecas: Number(r[2]) || 1,
+        responsavelProjeto: String(r[3] || ""),
+        impressora: String(r[4] || ""),
+        filamento: String(r[5] || ""),
+        custoFilamento: Number(r[6]) || 0,
+        custoEnergia: Number(r[7]) || 0,
+        maoDeObra: Number(r[8]) || 0,
+        custosFixos: Number(r[9]) || 0,
+        insumos: Number(r[10]) || 0,
+        custoTotal: Number(r[11]) || 0,
+        margem: Number(r[13]) || 0,
+        precoSugerido: Number(r[14]) || 0,
+      });
+    } else if (formato === "qtd") {
+      lista.push({
+        data: formatarData(r[0]),
+        projetoId: String(r[1]),
+        quantidadePecas: Number(r[2]) || 1,
+        responsavelProjeto: "",
         impressora: String(r[3] || ""),
         filamento: String(r[4] || ""),
         custoFilamento: Number(r[5]) || 0,
@@ -133,6 +190,7 @@ function lerProjetos() {
         data: formatarData(r[0]),
         projetoId: String(r[1]),
         quantidadePecas: 1,
+        responsavelProjeto: "",
         impressora: "",
         filamento: String(r[2] || ""),
         custoFilamento: Number(r[3]) || 0,
@@ -146,7 +204,85 @@ function lerProjetos() {
       });
     }
   }
-  return lista.reverse(); // mais recentes primeiro
+  return lista.reverse();
+}
+
+function lerVendas() {
+  var sheet = obterAba(ABA_VENDAS, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var valores = sheet.getDataRange().getValues();
+  var lista = [];
+  for (var i = 1; i < valores.length; i++) {
+    var r = valores[i];
+    if (!r[1]) continue;
+    lista.push({
+      data: formatarData(r[0]),
+      projetoId: String(r[1]),
+      valorVenda: Number(r[2]) || 0,
+      formaPagamento: String(r[3] || ""),
+      responsavelVenda: String(r[4] || ""),
+      responsavelProjeto: String(r[5] || ""),
+      observacoes: String(r[6] || ""),
+      custoTotal: Number(r[7]) || 0,
+      lucro: Number(r[8]) || 0,
+    });
+  }
+  return lista.reverse();
+}
+
+function lerSaidas() {
+  var sheet = obterAba(ABA_SAIDAS, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var valores = sheet.getDataRange().getValues();
+  var lista = [];
+  for (var i = 1; i < valores.length; i++) {
+    var r = valores[i];
+    if (!r[1]) continue;
+    lista.push({
+      data: formatarData(r[0]),
+      descricao: String(r[1]),
+      valor: Number(r[2]) || 0,
+    });
+  }
+  return lista.reverse();
+}
+
+function calcularFinanceiro() {
+  var vendas = lerVendas();
+  var saidas = lerSaidas();
+  var entradas = 0;
+  var custos = 0;
+  var lucroVendas = 0;
+  var maoDeObra = 0;
+
+  vendas.forEach(function (v) {
+    entradas += v.valorVenda;
+    custos += v.custoTotal;
+    lucroVendas += v.lucro;
+    var proj = buscarProjeto(v.projetoId);
+    if (proj) maoDeObra += proj.maoDeObra;
+  });
+
+  var totalSaidas = 0;
+  saidas.forEach(function (s) {
+    totalSaidas += s.valor;
+  });
+
+  return {
+    entradas: round2(entradas),
+    saidas: round2(totalSaidas),
+    custos: round2(custos),
+    lucro: round2(lucroVendas - totalSaidas),
+    maoDeObra: round2(maoDeObra),
+  };
+}
+
+function buscarProjeto(projetoId) {
+  var lista = lerProjetos();
+  for (var i = 0; i < lista.length; i++) {
+    if (lista[i].projetoId === projetoId) return lista[i];
+  }
+  return null;
 }
 
 /* -------------------- Gravação -------------------- */
@@ -165,23 +301,31 @@ function gravarCusto(p) {
   var c = p.custos || {};
   var qtd = num(p.quantidadePecas) || 1;
 
-  // 1) Resumo do projeto
   ensureSheet(ABA_PROJETOS, CABECALHO_PROJETOS).appendRow([
-    agora, p.projetoId, qtd, String(p.impressora || ""), p.filamento,
-    num(c.filamento), num(c.energia), num(c.maoDeObra),
+    agora, p.projetoId, qtd, String(p.responsavelProjeto || ""), String(p.impressora || ""),
+    p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
     num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
     num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
   ]);
 
-  // 2) Custo de Filamento
-  ensureSheet(ABA_FILAMENTO_CUSTO, [
-    "Data", "ID", "Qtd Peças", "Filamento", "Preço/Kg", "Qtd (g)", "Custo",
-  ]).appendRow([
-    agora, p.projetoId, qtd, p.filamento,
-    num(p.precoFilamentoKg), num(p.quantidadeG), num(c.filamento),
-  ]);
+  var sheetFil = ensureSheet(ABA_FILAMENTO_CUSTO, CABECALHO_FIL_CUSTO);
+  var fils = p.filamentos && p.filamentos.length ? p.filamentos : [
+  {
+    material: p.filamento || "",
+    precoFilamentoKg: num(p.precoFilamentoKg),
+    gramas: num(p.quantidadeG),
+    horas: num(p.horas),
+    custoUnitario: qtd > 0 ? num(c.filamento) / qtd : 0,
+  },
+  ];
+  fils.forEach(function (f, idx) {
+    sheetFil.appendRow([
+      agora, p.projetoId, qtd, idx + 1, f.material || "",
+      num(f.precoFilamentoKg), num(f.gramas), num(f.horas),
+      round2(num(f.custoUnitario) * qtd),
+    ]);
+  });
 
-  // 3) Energia
   ensureSheet(ABA_ENERGIA, [
     "Data", "ID", "Impressora", "Consumo (W)", "Tempo (h)", "kWh", "Custo",
   ]).appendRow([
@@ -189,12 +333,10 @@ function gravarCusto(p) {
     num(p.consumoW), num(p.horas), num(p.valorKwh), num(c.energia),
   ]);
 
-  // 4) Mão de Obra
   ensureSheet(ABA_MAO_DE_OBRA, ["Data", "ID", "Custo"]).appendRow([
     agora, p.projetoId, num(c.maoDeObra),
   ]);
 
-  // 5) Manutenção (custos fixos = taxa R$/h × horas)
   var sheetManut = obterAba(ABA_MANUTENCAO, ["Data", "ID", "Taxa (R$/h)", "Tempo (h)", "Custo"]);
   var cabManut = sheetManut.getLastRow() > 0
     ? sheetManut.getRange(1, 1, 1, sheetManut.getLastColumn()).getValues()[0]
@@ -204,13 +346,9 @@ function gravarCusto(p) {
       agora, p.projetoId, num(p.taxaManutencaoHora), num(p.horas), num(c.custosFixos),
     ]);
   } else {
-    // Formato antigo: Data | ID | Tempo (h) | Custo
-    sheetManut.appendRow([
-      agora, p.projetoId, num(p.horas), num(c.custosFixos),
-    ]);
+    sheetManut.appendRow([agora, p.projetoId, num(p.horas), num(c.custosFixos)]);
   }
 
-  // 6) Insumos
   ensureSheet(ABA_INSUMOS, ["Data", "ID", "Custo"]).appendRow([
     agora, p.projetoId, num(c.insumos),
   ]);
@@ -218,20 +356,48 @@ function gravarCusto(p) {
   return { projetoId: p.projetoId, custoTotal: num(p.custoTotal) };
 }
 
-/**
- * Cria todas as abas com cabeçalhos (se ainda não existirem).
- * Rode UMA VEZ no editor: selecione inicializarAbas › Executar.
- * Ou abra no navegador: {URL}/exec?action=inicializar
- */
+function gravarVenda(p) {
+  var agora = new Date();
+  var valorVenda = num(p.valorVenda);
+  var custoTotal = num(p.custoTotal);
+  var lucro = round2(valorVenda - custoTotal);
+  var proj = buscarProjeto(p.projetoId);
+  var respProj = p.responsavelProjeto || (proj ? proj.responsavelProjeto : "");
+
+  ensureSheet(ABA_VENDAS, CABECALHO_VENDAS).appendRow([
+    agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
+    String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
+    custoTotal, lucro,
+  ]);
+
+  return { projetoId: p.projetoId, lucro: lucro };
+}
+
+function gravarSaida(p) {
+  var agora = new Date();
+  ensureSheet(ABA_SAIDAS, CABECALHO_SAIDAS).appendRow([
+    agora, String(p.descricao || ""), num(p.valor),
+  ]);
+  return { descricao: p.descricao, valor: num(p.valor) };
+}
+
+function adicionarFilamento(p) {
+  var material = String(p.material || "").trim();
+  if (!material) throw new Error("Nome do material obrigatório");
+  var valor = num(p.valor);
+  if (valor <= 0) throw new Error("Valor inválido");
+  var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
+  sheet.appendRow([material, valor, 1]);
+  return { material: material, valor: valor };
+}
+
 function inicializarAbas() {
   var criadas = [];
   ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
   criadas.push(ABA_FILAMENTOS);
   ensureSheet(ABA_PROJETOS, CABECALHO_PROJETOS);
   criadas.push(ABA_PROJETOS);
-  ensureSheet(ABA_FILAMENTO_CUSTO, [
-    "Data", "ID", "Qtd Peças", "Filamento", "Preço/Kg", "Qtd (g)", "Custo",
-  ]);
+  ensureSheet(ABA_FILAMENTO_CUSTO, CABECALHO_FIL_CUSTO);
   criadas.push(ABA_FILAMENTO_CUSTO);
   ensureSheet(ABA_ENERGIA, [
     "Data", "ID", "Impressora", "Consumo (W)", "Tempo (h)", "kWh", "Custo",
@@ -243,6 +409,10 @@ function inicializarAbas() {
   criadas.push(ABA_MANUTENCAO);
   ensureSheet(ABA_INSUMOS, ["Data", "ID", "Custo"]);
   criadas.push(ABA_INSUMOS);
+  ensureSheet(ABA_VENDAS, CABECALHO_VENDAS);
+  criadas.push(ABA_VENDAS);
+  ensureSheet(ABA_SAIDAS, CABECALHO_SAIDAS);
+  criadas.push(ABA_SAIDAS);
   return criadas;
 }
 
@@ -255,10 +425,6 @@ function ensureSheet(nome, cabecalho) {
   return obterAba(nome, cabecalho, false);
 }
 
-/**
- * Obtém aba pelo nome. Se houver duplicatas (ex.: duas "Manutenção"),
- * usa a última (mais à direita) — onde o usuário costuma olhar.
- */
 function obterAba(nome, cabecalho, criarSeFaltar) {
   if (criarSeFaltar === undefined) criarSeFaltar = true;
   var ss = planilha();
@@ -284,6 +450,10 @@ function obterAba(nome, cabecalho, criarSeFaltar) {
 function num(v) {
   var n = Number(v);
   return isNaN(n) ? 0 : n;
+}
+
+function round2(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
 function formatarData(d) {

@@ -1,17 +1,5 @@
 /*
  * Lógica de cálculo da Calculadora de Custo — Impressão 3D (TNJ.3D)
- *
- * As fórmulas replicam exatamente a planilha "TNJ.3D - GESTÃO" (aba "Calculadora"):
- *   Custo do Filamento     = preço por Kg / 1000 * gramas utilizadas   (=B4/1000*B5)
- *   Custo de Energia       = consumo(W) / 1000 * horas * valor kWh     (=B8/1000*B9*B10)
- *   Mão de Obra            = valor informado                            (=B13)
- *   Custos Fixos (Manut.)  = taxa de manutenção por hora * horas        (=B14*B9)
- *   Insumos                = valor informado                            (=B16)
- *   CUSTO TOTAL            = soma dos itens acima
- *   Preço Sugerido (m%)    = custo total * (1 + m/100)
- *   Lucro Estimado (m%)    = preço sugerido - custo total
- *
- * Este módulo funciona tanto no navegador (window.TNJCalc) quanto no Node (module.exports).
  */
 (function (root, factory) {
   const api = factory();
@@ -21,11 +9,11 @@
   root.TNJCalc = api;
 })(typeof self !== "undefined" ? self : this, function () {
   const MARGENS_PADRAO = [30, 50, 80, 100];
+  const MAX_FILAMENTOS = 4;
 
   function toNumber(value) {
     if (typeof value === "number") return isFinite(value) ? value : 0;
     if (value === null || value === undefined) return 0;
-    // Aceita "1.234,56" e "1234.56"
     const normalizado = String(value)
       .trim()
       .replace(/\s|R\$/g, "")
@@ -35,13 +23,11 @@
     return isFinite(n) ? n : 0;
   }
 
-  // Converte a quantidade de filamento para gramas.
   function gramas(quantidade, unidade) {
     const q = toNumber(quantidade);
     return unidade === "kg" ? q * 1000 : q;
   }
 
-  // Converte o tempo de impressão para horas.
   function horas(tempo, unidade) {
     const t = toNumber(tempo);
     return unidade === "min" ? t / 60 : t;
@@ -51,15 +37,34 @@
     return Math.round((n + Number.EPSILON) * 100) / 100;
   }
 
-  /**
-   * Calcula todos os custos a partir das entradas.
-   * @param {Object} input
-   * @returns {Object} resultado detalhado
-   */
+  function normalizarFilamentos(input) {
+    if (Array.isArray(input.filamentos) && input.filamentos.length) {
+      return input.filamentos
+        .filter((f) => f && f.ativo !== false)
+        .slice(0, MAX_FILAMENTOS)
+        .map((f) => ({
+          material: f.material || "",
+          precoFilamentoKg: toNumber(f.precoFilamentoKg),
+          quantidade: f.quantidade,
+          unidadeQuantidade: f.unidadeQuantidade || "g",
+          tempo: f.tempo,
+          unidadeTempo: f.unidadeTempo || "h",
+        }));
+    }
+    return [
+      {
+        material: input.material || "",
+        precoFilamentoKg: toNumber(input.precoFilamentoKg),
+        quantidade: input.quantidade,
+        unidadeQuantidade: input.unidadeQuantidade || "g",
+        tempo: input.tempo,
+        unidadeTempo: input.unidadeTempo || "h",
+      },
+    ];
+  }
+
   function calcular(input) {
-    const precoKg = toNumber(input.precoFilamentoKg);
-    const g = gramas(input.quantidade, input.unidadeQuantidade || "g");
-    const h = horas(input.tempo, input.unidadeTempo || "h");
+    const lista = normalizarFilamentos(input);
     const consumoW = toNumber(input.consumoW);
     const valorKwh = toNumber(input.valorKwh);
     const maoDeObra = toNumber(input.maoDeObra);
@@ -68,7 +73,24 @@
     const margem = toNumber(input.margem);
     const qtdPecas = Math.max(1, Math.floor(toNumber(input.quantidadePecas) || 1));
 
-    const custoFilamentoUnit = (precoKg / 1000) * g;
+    let custoFilamentoUnit = 0;
+    let horasTotal = 0;
+    const detalhesFilamentos = lista.map((f) => {
+      const g = gramas(f.quantidade, f.unidadeQuantidade);
+      const h = horas(f.tempo, f.unidadeTempo);
+      const custo = (f.precoFilamentoKg / 1000) * g;
+      custoFilamentoUnit += custo;
+      horasTotal += h;
+      return {
+        material: f.material,
+        precoFilamentoKg: f.precoFilamentoKg,
+        gramas: round2(g),
+        horas: h,
+        custoUnitario: round2(custo),
+      };
+    });
+
+    const h = horasTotal;
     const custoEnergiaUnit = (consumoW / 1000) * h * valorKwh;
     const custosFixosUnit = taxaManutencaoHora * h;
 
@@ -95,10 +117,17 @@
       };
     });
 
+    const filamentoResumo =
+      detalhesFilamentos.length === 1
+        ? detalhesFilamentos[0].material
+        : detalhesFilamentos.map((f) => f.material).filter(Boolean).join(" + ");
+
     return {
-      gramas: round2(g),
+      gramas: round2(detalhesFilamentos.reduce((s, f) => s + f.gramas, 0)),
       horas: h,
       quantidadePecas: qtdPecas,
+      filamentos: detalhesFilamentos,
+      filamentoResumo,
       custosUnitarios: {
         filamento: round2(custoFilamentoUnit),
         energia: round2(custoEnergiaUnit),
@@ -125,6 +154,7 @@
 
   return {
     MARGENS_PADRAO,
+    MAX_FILAMENTOS,
     toNumber,
     gramas,
     horas,
