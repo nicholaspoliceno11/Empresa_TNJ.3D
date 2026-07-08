@@ -9,11 +9,13 @@
  *   - Quem tem acesso: Qualquer pessoa
  * Copie a URL /exec gerada e cole em assets/js/config.js (API_URL).
  *
- * Endpoints:
- *   GET  ?action=filamentos  -> lista da aba "Filamentos" (Material, Valor)
- *   GET  ?action=projetos    -> registros da aba "Projetos"
- *   GET  ?action=proximoId   -> próximo código automático de projeto
- *   POST {json do custo}     -> grava o custo separado em cada aba
+ * Endpoints (use POST com Content-Type text/plain — evita bloqueio CORS no site):
+ *   POST { action: "filamentos" }  -> lista da aba "Filamentos"
+ *   POST { action: "projetos" }    -> registros da aba "Projetos"
+ *   POST { action: "proximoId" }   -> próximo código automático de projeto
+ *   POST {json do custo}           -> grava o custo (sem campo action)
+ *
+ * GET também funciona ao abrir a URL no navegador (teste manual).
  */
 
 var ABA_FILAMENTOS = "Filamentos";
@@ -52,6 +54,16 @@ function doGet(e) {
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
+    var action = payload.action;
+    if (action === "filamentos") {
+      return json({ ok: true, filamentos: lerFilamentos() });
+    }
+    if (action === "projetos") {
+      return json({ ok: true, projetos: lerProjetos() });
+    }
+    if (action === "proximoId") {
+      return json({ ok: true, projetoId: proximoProjetoId() });
+    }
     var resultado = gravarCusto(payload);
     return json({ ok: true, resultado: resultado });
   } catch (err) {

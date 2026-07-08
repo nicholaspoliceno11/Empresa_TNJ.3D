@@ -84,32 +84,38 @@
     "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   /* --------------------- API --------------------- */
-  function apiUrl(params) {
-    const u = new URL(API_URL);
-    Object.entries(params || {}).forEach(([k, v]) => u.searchParams.set(k, v));
-    return u.toString();
+  // POST + text/plain evita bloqueio CORS do Apps Script (GET redireciona e falha no fetch).
+  async function apiPost(body) {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("Resposta inválida da API. Verifique a URL /exec do Apps Script.");
+    }
   }
 
   async function fetchFilamentos() {
     if (DEMO) return cfg.FILAMENTOS_DEMO.slice();
-    const res = await fetch(apiUrl({ action: "filamentos" }));
-    const data = await res.json();
+    const data = await apiPost({ action: "filamentos" });
     if (!data.ok) throw new Error(data.error || "Falha ao carregar filamentos");
     return data.filamentos;
   }
 
   async function fetchProjetos() {
     if (DEMO) return [];
-    const res = await fetch(apiUrl({ action: "projetos" }));
-    const data = await res.json();
+    const data = await apiPost({ action: "projetos" });
     if (!data.ok) throw new Error(data.error || "Falha ao carregar projetos");
     return data.projetos;
   }
 
   async function fetchProximoId() {
     if (DEMO) return gerarIdLocal();
-    const res = await fetch(apiUrl({ action: "proximoId" }));
-    const data = await res.json();
+    const data = await apiPost({ action: "proximoId" });
     if (!data.ok) throw new Error(data.error || "Falha ao gerar ID");
     return data.projetoId;
   }
@@ -165,17 +171,10 @@
 
   async function salvarCusto(payload) {
     if (DEMO) {
-      // Sem API configurada: simula o salvamento para demonstração local.
       await new Promise((r) => setTimeout(r, 300));
       return { ok: true, demo: true };
     }
-    // text/plain evita o preflight CORS do Apps Script.
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    });
-    return res.json();
+    return apiPost(payload);
   }
 
   function showSetup(msg, cls) {
@@ -186,6 +185,12 @@
   function normalizarApiUrl(raw) {
     const url = (raw || "").trim();
     if (!url) return "";
+    if (/script\.googleusercontent\.com/i.test(url)) {
+      throw new Error(
+        "Não use a URL de redirecionamento (googleusercontent.com). " +
+          "Cole a URL original que termina em /exec (script.google.com/macros/s/.../exec)."
+      );
+    }
     if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)) {
       throw new Error("URL inválida. Deve começar com https://script.google.com/macros/s/ e terminar em /exec");
     }
@@ -209,12 +214,16 @@
   async function testarConexao(url) {
     const testUrl = url || API_URL;
     if (!testUrl) throw new Error("Informe a URL do App da Web.");
-    const u = new URL(testUrl);
-    u.searchParams.set("action", "filamentos");
-    const res = await fetch(u.toString());
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "Resposta inválida da API");
-    return data.filamentos || [];
+    normalizarApiUrl(testUrl);
+    const prev = API_URL;
+    API_URL = testUrl;
+    try {
+      const data = await apiPost({ action: "filamentos" });
+      if (!data.ok) throw new Error(data.error || "Resposta inválida da API");
+      return data.filamentos || [];
+    } finally {
+      API_URL = prev;
+    }
   }
 
   function initConfig() {
