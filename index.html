@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TNJ.3D — Gestão & Calculadora de Custos</title>
+    <meta
+      name="description"
+      content="Calculadora de custos e gestão para impressão 3D — TNJ.3D"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">3D</div>
+        <div class="brand-text">
+          <strong>TNJ.3D</strong>
+          <span>Gestão &amp; Custos</span>
+        </div>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-view="calculadora">Calculadora</button>
+        <button class="tab" data-view="projetos">Projetos</button>
+      </nav>
+      <div class="conn" id="conn-status" title="Status da conexão">
+        <span class="dot"></span><span class="conn-label">verificando…</span>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- ================= CALCULADORA ================= -->
+      <section id="view-calculadora" class="view active">
+        <div class="grid">
+          <!-- Coluna de entradas -->
+          <div class="card">
+            <h2>Calculadora de Custo — Impressão 3D</h2>
+
+            <fieldset>
+              <legend>Filamento</legend>
+              <label for="filamento">Filamento</label>
+              <select id="filamento"></select>
+
+              <div class="row">
+                <div>
+                  <label for="precoFilamento">Preço do Filamento (R$/Kg)</label>
+                  <input id="precoFilamento" type="number" step="0.01" min="0" />
+                </div>
+                <div>
+                  <label for="quantidade">Quantidade utilizada</label>
+                  <div class="input-unit">
+                    <input id="quantidade" type="number" step="0.01" min="0" value="1.14" />
+                    <select id="unidadeQuantidade">
+                      <option value="g" selected>g</option>
+                      <option value="kg">Kg</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Energia e Tempo</legend>
+              <div class="row">
+                <div>
+                  <label for="consumoW">Consumo da impressora (W)</label>
+                  <input id="consumoW" type="number" step="1" min="0" />
+                </div>
+                <div>
+                  <label for="valorKwh">Valor do kWh (R$)</label>
+                  <input id="valorKwh" type="number" step="0.01" min="0" />
+                </div>
+              </div>
+              <label for="tempo">Tempo de impressão</label>
+              <div class="input-unit">
+                <input id="tempo" type="number" step="0.01" min="0" value="0.12" />
+                <select id="unidadeTempo">
+                  <option value="h" selected>horas</option>
+                  <option value="min">minutos</option>
+                </select>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Opcionais</legend>
+              <div class="row">
+                <div>
+                  <label for="maoDeObra">Mão de obra (R$)</label>
+                  <input id="maoDeObra" type="number" step="0.01" min="0" />
+                </div>
+                <div>
+                  <label for="taxaManutencao">Custo fixo / manutenção (R$/h)</label>
+                  <input id="taxaManutencao" type="number" step="0.01" min="0" />
+                </div>
+              </div>
+              <div class="row">
+                <div>
+                  <label for="insumos">Valor insumos (R$)</label>
+                  <input id="insumos" type="number" step="0.01" min="0" />
+                </div>
+                <div>
+                  <label for="margem">Margem de lucro (%)</label>
+                  <input id="margem" type="number" step="1" min="0" />
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Projeto</legend>
+              <label for="projetoId">ID do projeto</label>
+              <input id="projetoId" type="text" placeholder="Ex.: PRJ-001" />
+            </fieldset>
+
+            <div class="actions">
+              <button id="btn-criar" class="btn btn-primary">Criar custo</button>
+              <span id="save-msg" class="save-msg" role="status"></span>
+            </div>
+          </div>
+
+          <!-- Coluna de resultados -->
+          <div class="card results">
+            <h2>Resultado</h2>
+            <ul class="breakdown">
+              <li><span>Custo do Filamento</span><b id="r-filamento">R$ 0,00</b></li>
+              <li><span>Custo de Energia</span><b id="r-energia">R$ 0,00</b></li>
+              <li><span>Mão de Obra</span><b id="r-maoobra">R$ 0,00</b></li>
+              <li><span>Custos Fixos (Manutenção)</span><b id="r-fixos">R$ 0,00</b></li>
+              <li><span>Insumos</span><b id="r-insumos">R$ 0,00</b></li>
+            </ul>
+            <div class="total">
+              <span>CUSTO TOTAL</span><b id="r-total">R$ 0,00</b>
+            </div>
+
+            <div class="suggested">
+              <div>
+                <small>Preço sugerido (margem selecionada)</small>
+                <b id="r-preco">R$ 0,00</b>
+              </div>
+              <div>
+                <small>Lucro estimado</small>
+                <b id="r-lucro" class="profit">R$ 0,00</b>
+              </div>
+            </div>
+
+            <h3>Tabela de margens</h3>
+            <table class="margens">
+              <thead>
+                <tr><th>Margem %</th><th>Preço sugerido</th><th>Lucro</th></tr>
+              </thead>
+              <tbody id="tabela-margens"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PROJETOS ================= -->
+      <section id="view-projetos" class="view">
+        <div class="card">
+          <div class="card-head">
+            <h2>Projetos / Custos registrados</h2>
+            <button id="btn-recarregar" class="btn">Recarregar</button>
+          </div>
+          <p class="muted" id="projetos-info"></p>
+          <div class="table-wrap">
+            <table class="projetos">
+              <thead>
+                <tr>
+                  <th>Data</th><th>ID</th><th>Filamento</th>
+                  <th>Filamento R$</th><th>Energia R$</th><th>Mão de obra R$</th>
+                  <th>Manutenção R$</th><th>Insumos R$</th>
+                  <th>Custo total</th><th>Margem %</th><th>Preço sugerido</th>
+                </tr>
+              </thead>
+              <tbody id="projetos-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>TNJ.3D · Gestão &amp; Calculadora de Custos</span>
+      <span id="mode-badge" class="badge">—</span>
+    </footer>
+
+    <script src="assets/js/calc.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>
