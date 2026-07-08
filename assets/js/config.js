@@ -7,8 +7,14 @@
  * em MODO DEMONSTRAÇÃO usando a lista de filamentos embutida em FILAMENTOS_DEMO.
  */
 window.TNJConfig = {
+  // Cole aqui a URL do App da Web (termina em /exec) após implantar o Apps Script.
   // Ex.: "https://script.google.com/macros/s/AKfycb.../exec"
   API_URL: "",
+
+  // Planilha TNJ.3D — Gestão & Custos (vincule o Apps Script a esta planilha).
+  PLANILHA_ID: "1IRR33vv1pUYtr87Q6OpktZR3WfPHrXUrv2aOq4o1pAA",
+  PLANILHA_URL:
+    "https://docs.google.com/spreadsheets/d/1IRR33vv1pUYtr87Q6OpktZR3WfPHrXUrv2aOq4o1pAA/edit",
 
   EMPRESA: "TNJ.3D",
 

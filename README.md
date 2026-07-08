@@ -37,7 +37,19 @@ filamentos embutida e simula o salvamento), o que permite testar tudo localmente
 
 ## Conectar à planilha (produção)
 
-1. Abra a planilha **TNJ.3D - GESTÃO** › menu **Extensões › Apps Script**.
+**Planilha:** [TNJ.3D — Gestão & Custos](https://docs.google.com/spreadsheets/d/1IRR33vv1pUYtr87Q6OpktZR3WfPHrXUrv2aOq4o1pAA/edit)
+
+### Opção A — Pela interface do site (mais rápido)
+
+1. Abra o site e vá na aba **Configuração**.
+2. Siga os passos na tela para implantar o Apps Script na planilha.
+3. Cole a URL `/exec` e clique em **Conectar**.
+
+A URL fica salva no navegador (localStorage). Ideal para testar antes de publicar.
+
+### Opção B — Via `config.js` (GitHub Pages)
+
+1. Abra a planilha › menu **Extensões › Apps Script**.
 2. Apague o conteúdo padrão e cole o código de [`apps-script/Codigo.gs`](apps-script/Codigo.gs).
 3. Clique em **Implantar › Nova implantação**, escolha o tipo **App da Web**:
    - **Executar como:** Eu (sua conta)

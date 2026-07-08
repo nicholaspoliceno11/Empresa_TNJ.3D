@@ -27,6 +27,7 @@
       <nav class="tabs" id="tabs">
         <button class="tab active" data-view="calculadora">Calculadora</button>
         <button class="tab" data-view="projetos">Projetos</button>
+        <button class="tab" data-view="config">Configuração</button>
       </nav>
       <div class="conn" id="conn-status" title="Status da conexão">
         <span class="dot"></span><span class="conn-label">verificando…</span>
@@ -179,6 +180,60 @@
               <tbody id="projetos-body"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- ================= CONFIGURAÇÃO ================= -->
+      <section id="view-config" class="view">
+        <div class="card setup-card">
+          <h2>Conectar à planilha Google</h2>
+          <p class="muted">
+            Para gravar os custos na planilha, publique o backend (Google Apps Script) e cole
+            a URL do App da Web abaixo.
+          </p>
+
+          <ol class="setup-steps">
+            <li>
+              Abra a planilha
+              <a id="link-planilha" href="#" target="_blank" rel="noopener">TNJ.3D — Gestão</a>.
+            </li>
+            <li>Menu <strong>Extensões → Apps Script</strong>.</li>
+            <li>
+              Apague o código padrão e cole o conteúdo de
+              <code>apps-script/Codigo.gs</code> (no repositório do projeto).
+            </li>
+            <li>
+              Clique em <strong>Implantar → Nova implantação</strong> → tipo
+              <strong>App da Web</strong>:
+              <ul>
+                <li>Executar como: <strong>Eu</strong></li>
+                <li>Quem tem acesso: <strong>Qualquer pessoa</strong></li>
+              </ul>
+            </li>
+            <li>Autorize e copie a URL que termina em <code>/exec</code>.</li>
+            <li>Cole a URL no campo abaixo e clique em <strong>Conectar</strong>.</li>
+          </ol>
+
+          <div class="setup-form">
+            <label for="api-url-input">URL do App da Web (API)</label>
+            <input
+              id="api-url-input"
+              type="url"
+              placeholder="https://script.google.com/macros/s/…/exec"
+              spellcheck="false"
+            />
+            <div class="setup-actions">
+              <button id="btn-conectar" class="btn btn-primary">Conectar</button>
+              <button id="btn-desconectar" class="btn" type="button">Desconectar</button>
+              <button id="btn-testar-api" class="btn" type="button">Testar conexão</button>
+            </div>
+            <p class="setup-msg" id="setup-msg"></p>
+          </div>
+
+          <p class="muted setup-hint">
+            A URL também pode ser definida em <code>assets/js/config.js</code> (variável
+            <code>API_URL</code>) para publicação permanente no GitHub Pages.
+          </p>
         </div>
       </section>
     </main>

@@ -4,8 +4,30 @@
 
   const cfg = window.TNJConfig;
   const Calc = window.TNJCalc;
-  const API_URL = (cfg.API_URL || "").trim();
-  const DEMO = API_URL === "";
+  const STORAGE_KEY = "tnj_api_url";
+
+  function resolveApiUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = (params.get("api") || "").trim();
+    if (fromQuery) {
+      try {
+        localStorage.setItem(STORAGE_KEY, fromQuery);
+      } catch {
+        /* localStorage indisponível */
+      }
+      return fromQuery;
+    }
+    try {
+      const fromStorage = (localStorage.getItem(STORAGE_KEY) || "").trim();
+      if (fromStorage) return fromStorage;
+    } catch {
+      /* localStorage indisponível */
+    }
+    return (cfg.API_URL || "").trim();
+  }
+
+  let API_URL = resolveApiUrl();
+  let DEMO = API_URL === "";
 
   const $ = (id) => document.getElementById(id);
 
@@ -42,6 +64,13 @@
     projetosBody: $("projetos-body"),
     projetosInfo: $("projetos-info"),
     btnRecarregar: $("btn-recarregar"),
+    // configuração
+    linkPlanilha: $("link-planilha"),
+    apiUrlInput: $("api-url-input"),
+    btnConectar: $("btn-conectar"),
+    btnDesconectar: $("btn-desconectar"),
+    btnTestarApi: $("btn-testar-api"),
+    setupMsg: $("setup-msg"),
   };
 
   let filamentos = [];
@@ -85,6 +114,99 @@
       body: JSON.stringify(payload),
     });
     return res.json();
+  }
+
+  function showSetup(msg, cls) {
+    el.setupMsg.textContent = msg;
+    el.setupMsg.className = "setup-msg " + (cls || "");
+  }
+
+  function normalizarApiUrl(raw) {
+    const url = (raw || "").trim();
+    if (!url) return "";
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)) {
+      throw new Error("URL inválida. Deve começar com https://script.google.com/macros/s/ e terminar em /exec");
+    }
+    return url;
+  }
+
+  function salvarApiUrl(raw) {
+    const url = normalizarApiUrl(raw);
+    localStorage.setItem(STORAGE_KEY, url);
+    API_URL = url;
+    DEMO = false;
+    return url;
+  }
+
+  function limparApiUrl() {
+    localStorage.removeItem(STORAGE_KEY);
+    API_URL = (cfg.API_URL || "").trim();
+    DEMO = API_URL === "";
+  }
+
+  async function testarConexao(url) {
+    const testUrl = url || API_URL;
+    if (!testUrl) throw new Error("Informe a URL do App da Web.");
+    const u = new URL(testUrl);
+    u.searchParams.set("action", "filamentos");
+    const res = await fetch(u.toString());
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Resposta inválida da API");
+    return data.filamentos || [];
+  }
+
+  function initConfig() {
+    if (cfg.PLANILHA_URL && el.linkPlanilha) {
+      el.linkPlanilha.href = cfg.PLANILHA_URL;
+    }
+    if (el.apiUrlInput) {
+      el.apiUrlInput.value = API_URL;
+    }
+    if (!DEMO) {
+      showSetup("Conectado à planilha.", "ok");
+    }
+  }
+
+  async function conectarApi() {
+    try {
+      const url = salvarApiUrl(el.apiUrlInput.value);
+      showSetup("Testando conexão…", "");
+      el.btnConectar.disabled = true;
+      const lista = await testarConexao(url);
+      showSetup(`Conectado! ${lista.length} filamento(s) carregado(s) da planilha.`, "ok");
+      setTimeout(() => location.reload(), 800);
+    } catch (e) {
+      limparApiUrl();
+      showSetup("Erro: " + e.message, "err");
+    } finally {
+      el.btnConectar.disabled = false;
+    }
+  }
+
+  function desconectarApi() {
+    limparApiUrl();
+    showSetup("API removida do navegador. Recarregando…", "");
+    setTimeout(() => location.reload(), 400);
+  }
+
+  async function testarApi() {
+    try {
+      el.btnTestarApi.disabled = true;
+      showSetup("Testando…", "");
+      const url = normalizarApiUrl(el.apiUrlInput.value || API_URL);
+      const lista = await testarConexao(url);
+      showSetup(`OK — API respondeu com ${lista.length} filamento(s).`, "ok");
+    } catch (e) {
+      showSetup("Falha no teste: " + e.message, "err");
+    } finally {
+      el.btnTestarApi.disabled = false;
+    }
+  }
+
+  function initConfigEvents() {
+    if (el.btnConectar) el.btnConectar.addEventListener("click", conectarApi);
+    if (el.btnDesconectar) el.btnDesconectar.addEventListener("click", desconectarApi);
+    if (el.btnTestarApi) el.btnTestarApi.addEventListener("click", testarApi);
   }
 
   /* --------------------- UI helpers --------------------- */
@@ -286,6 +408,8 @@
     preencherPadroes();
     initTabs();
     initEvents();
+    initConfig();
+    initConfigEvents();
     setConn(DEMO ? "demo" : "ok", DEMO ? "modo demonstração" : "conectando…");
     try {
       const lista = await fetchFilamentos();

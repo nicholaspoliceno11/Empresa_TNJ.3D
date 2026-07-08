@@ -369,3 +369,61 @@ table {
   padding: 4px 12px;
   font-weight: 600;
 }
+
+/* ---------- Configuração / Setup ---------- */
+.setup-card {
+  max-width: 720px;
+}
+.setup-steps {
+  margin: 18px 0 24px;
+  padding-left: 22px;
+  line-height: 1.65;
+}
+.setup-steps li {
+  margin-bottom: 10px;
+}
+.setup-steps ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.setup-steps a {
+  color: var(--brand-2);
+}
+.setup-form {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.setup-form input[type="url"] {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+  font-family: ui-monospace, monospace;
+}
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.setup-msg {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 1.4em;
+}
+.setup-msg.ok {
+  color: var(--green);
+}
+.setup-msg.err {
+  color: var(--red);
+}
+.setup-hint {
+  margin-top: 20px;
+  font-size: 13px;
+}
