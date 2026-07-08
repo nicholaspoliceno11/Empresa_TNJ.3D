@@ -16,6 +16,7 @@
  *   POST {json do custo}           -> grava o custo (sem campo action)
  *
  *   GET  ?action=inicializar   -> cria todas as abas com cabeçalhos (rode uma vez)
+ *   GET  ?action=gravar&payload={json} -> grava custo (usado pelo site via JSONP)
  */
 
 var ABA_FILAMENTOS = "Filamentos";
@@ -45,6 +46,9 @@ function doGet(e) {
       result = { ok: true, projetoId: proximoProjetoId() };
     } else if (action === "inicializar") {
       result = { ok: true, abas: inicializarAbas() };
+    } else if (action === "gravar") {
+      var dados = JSON.parse(e.parameter.payload);
+      result = { ok: true, resultado: gravarCusto(dados) };
     } else {
       result = { ok: false, error: "Ação desconhecida: " + action };
     }

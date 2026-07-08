@@ -91,7 +91,7 @@
     "Depois Nova versão → Implantar.";
 
   // JSONP: contorna bloqueio CORS do Apps Script no GitHub Pages.
-  function apiJsonp(action) {
+  function apiJsonp(action, extraParams) {
     return new Promise((resolve, reject) => {
       const cb = "_tnjCb" + Date.now();
       let script;
@@ -114,6 +114,9 @@
       script = document.createElement("script");
       const u = new URL(API_URL);
       u.searchParams.set("action", action);
+      if (extraParams) {
+        Object.entries(extraParams).forEach(([k, v]) => u.searchParams.set(k, v));
+      }
       u.searchParams.set("callback", cb);
       script.src = u.toString();
       script.onerror = () => {
@@ -224,6 +227,11 @@
     if (DEMO) {
       await new Promise((r) => setTimeout(r, 300));
       return { ok: true, demo: true };
+    }
+    const json = JSON.stringify(payload);
+    // JSONP evita CORS no GitHub Pages; POST só como fallback.
+    if (json.length <= 1800) {
+      return apiJsonp("gravar", { payload: json });
     }
     return apiPost(payload);
   }
