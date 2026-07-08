@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=13" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=14" />
   </head>
   <body>
     <header class="topbar">
@@ -22,6 +22,7 @@
         <button class="tab active" data-view="calculadora">Calculadora</button>
         <button class="tab" data-view="projetos">Projetos</button>
         <button class="tab" data-view="vendas">Vendas</button>
+        <button class="tab" data-view="estoque">Estoque</button>
         <button class="tab" data-view="filamentos">Filamentos</button>
         <button class="tab" data-view="config">Config</button>
       </nav>
@@ -136,6 +137,8 @@
             <select id="venda-projeto"></select>
             <label for="venda-valor">Valor da venda (R$)</label>
             <input id="venda-valor" type="number" step="0.01" min="0" />
+            <label for="venda-qtd">Quantidade vendida</label>
+            <input id="venda-qtd" type="number" min="1" value="1" />
             <label for="venda-pagamento">Forma de pagamento</label>
             <select id="venda-pagamento"></select>
             <label for="venda-responsavel">Responsável pela venda</label>
@@ -174,6 +177,26 @@
           </div>
           <h3 style="margin-top:20px">Saídas fixas</h3>
           <table class="projetos"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr></thead><tbody id="saidas-body"></tbody></table>
+        </div>
+      </section>
+
+      <!-- ESTOQUE -->
+      <section id="view-estoque" class="view">
+        <div class="card">
+          <div class="card-head">
+            <h2>Estoque de projetos</h2>
+            <button id="btn-recarregar-estoque" class="btn">Atualizar</button>
+          </div>
+          <p class="muted field-hint">Entrada automática ao criar custo na calculadora. Saída automática ao registrar venda.</p>
+          <p class="muted" id="estoque-info"></p>
+          <div class="table-wrap">
+            <table class="projetos">
+              <thead><tr>
+                <th>ID Raiz</th><th>Filamento</th><th>Qtd estoque</th><th>Preço ref.</th><th>Última atualização</th>
+              </tr></thead>
+              <tbody id="estoque-body"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -218,9 +241,10 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=13"></script>
-    <script src="assets/js/config.js?v=13"></script>
-    <script src="assets/js/app.js?v=13"></script>
-    <script src="assets/js/vendas.js?v=13"></script>
+    <script src="assets/js/calc.js?v=14"></script>
+    <script src="assets/js/config.js?v=14"></script>
+    <script src="assets/js/app.js?v=14"></script>
+    <script src="assets/js/vendas.js?v=14"></script>
+    <script src="assets/js/estoque.js?v=14"></script>
   </body>
 </html>

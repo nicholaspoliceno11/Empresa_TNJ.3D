@@ -121,6 +121,7 @@
     const payload = {
       projetoId,
       valorVenda: Number($("venda-valor").value) || 0,
+      quantidadeVenda: Math.max(1, Math.floor(Number($("venda-qtd").value) || 1)),
       formaPagamento: $("venda-pagamento").value,
       responsavelVenda: $("venda-responsavel").value,
       observacoes: $("venda-obs").value.trim(),
@@ -134,8 +135,10 @@
         $("venda-msg").textContent = resp.demo ? "Venda simulada (demo)." : "Venda registrada!";
         $("venda-msg").className = "save-msg ok";
         $("venda-obs").value = "";
+        $("venda-qtd").value = "1";
         await carregarVendas();
         await atualizarFinanceiro();
+        if (window.TNJEstoque) await window.TNJEstoque.carregarEstoque();
       } else {
         $("venda-msg").textContent = "Erro: " + (resp && resp.error ? resp.error : "desconhecido");
         $("venda-msg").className = "save-msg err";

@@ -5,8 +5,8 @@
  *   - Executar como: Eu (você)
  *   - Quem tem acesso: Qualquer pessoa
  *
- * GET (JSONP): filamentos, projetos, projetoDetalhe, proximoId, vendas, saidas, financeiro,
- *              inicializar, gravar (payload JSON)
+ * GET (JSONP): filamentos, projetos, projetoDetalhe, proximoId, proximoIdReutilizacao,
+ *              vendas, saidas, financeiro, estoque, inicializar, gravar (payload JSON)
  */
 
 var ABA_FILAMENTOS = "Filamentos";
@@ -18,6 +18,7 @@ var ABA_MANUTENCAO = "Manutenção";
 var ABA_INSUMOS = "Insumos";
 var ABA_VENDAS = "Vendas";
 var ABA_SAIDAS = "Saídas Fixas";
+var ABA_ESTOQUE = "Estoque";
 var PREFIXO_PROJETO = "PRJ";
 
 var CABECALHO_PROJETOS = [
@@ -32,10 +33,14 @@ var CABECALHO_FIL_CUSTO = [
 
 var CABECALHO_VENDAS = [
   "Data", "ID Projeto", "Valor Venda", "Forma Pagamento", "Responsável Venda",
-  "Responsável Projeto", "Observações", "Custo Total", "Lucro",
+  "Responsável Projeto", "Observações", "Custo Total", "Lucro", "Qtd Vendida",
 ];
 
 var CABECALHO_SAIDAS = ["Data", "Descrição", "Valor"];
+
+var CABECALHO_ESTOQUE = [
+  "ID Raiz", "Filamento", "Qtd Estoque", "Preço Ref. (R$)", "Última Atualização",
+];
 
 function doGet(e) {
   try {
@@ -85,6 +90,9 @@ function rotearAcao(action, e, payload) {
   }
   if (action === "financeiro") {
     return { ok: true, resumo: calcularFinanceiro() };
+  }
+  if (action === "estoque") {
+    return { ok: true, estoque: lerEstoque() };
   }
   if (action === "inicializar") {
     return { ok: true, abas: inicializarAbas() };
@@ -361,34 +369,54 @@ function lerProjetoDetalhe(projetoId, dataRef) {
   var margem = 0;
   var maoObraBatch = 0;
   var insumosBatch = 0;
+  var custoFilamento = 0;
+  var custoEnergia = 0;
+  var custosFixos = 0;
+  var filamentoNome = "";
+  var precoSugerido = 0;
 
   if (formato === "comResp") {
     qtd = Number(r[2]) || 1;
     responsavel = String(r[3] || "");
     impressora = String(r[4] || "");
+    filamentoNome = String(r[5] || "");
+    custoFilamento = Number(r[6]) || 0;
+    custoEnergia = Number(r[7]) || 0;
     maoObraBatch = Number(r[8]) || 0;
+    custosFixos = Number(r[9]) || 0;
     insumosBatch = Number(r[10]) || 0;
     margem = Number(r[13]) || 0;
+    precoSugerido = Number(r[14]) || 0;
   } else if (formato === "qtd") {
     qtd = Number(r[2]) || 1;
     impressora = String(r[3] || "");
+    filamentoNome = String(r[4] || "");
+    custoFilamento = Number(r[5]) || 0;
+    custoEnergia = Number(r[6]) || 0;
     maoObraBatch = Number(r[7]) || 0;
+    custosFixos = Number(r[8]) || 0;
     insumosBatch = Number(r[9]) || 0;
     margem = Number(r[12]) || 0;
+    precoSugerido = Number(r[13]) || 0;
   } else {
+    filamentoNome = String(r[2] || "");
+    custoFilamento = Number(r[3]) || 0;
+    custoEnergia = Number(r[4]) || 0;
     maoObraBatch = Number(r[5]) || 0;
+    custosFixos = Number(r[6]) || 0;
     insumosBatch = Number(r[7]) || 0;
     margem = Number(r[9]) || 0;
+    precoSugerido = Number(r[10]) || 0;
   }
 
   var energia = lerEnergiaRegistro(id, dataReg);
   var manut = lerManutencaoRegistro(id, dataReg);
   var filamentos = lerFilamentosRegistro(id, dataReg);
 
-  if (!filamentos.length && r[5]) {
+  if (!filamentos.length && filamentoNome) {
     filamentos.push({
       slot: 1,
-      material: String(formato === "comResp" || formato === "qtd" ? r[5] : r[2] || ""),
+      material: filamentoNome,
       precoFilamentoKg: 0,
       quantidade: 0,
       unidadeQuantidade: "g",
@@ -410,12 +438,21 @@ function lerProjetoDetalhe(projetoId, dataRef) {
     quantidadePecas: qtd,
     responsavelProjeto: responsavel,
     impressora: energia.impressora || impressora,
+    filamento: filamentoNome,
     consumoW: energia.consumoW || 0,
     valorKwh: energia.valorKwh || 0,
     taxaManutencaoHora: manut.taxa || 0,
     maoDeObra: round2(maoObraBatch / qtd),
     insumos: round2(insumosBatch / qtd),
     margem: margem,
+    precoSugeridoUnit: round2(precoSugerido / qtd),
+    custosUnitarios: {
+      filamento: round2(custoFilamento / qtd),
+      energia: round2(custoEnergia / qtd),
+      maoDeObra: round2(maoObraBatch / qtd),
+      custosFixos: round2(custosFixos / qtd),
+      insumos: round2(insumosBatch / qtd),
+    },
     filamentos: filamentos,
   };
 }
@@ -438,6 +475,7 @@ function lerVendas() {
       observacoes: String(r[6] || ""),
       custoTotal: Number(r[7]) || 0,
       lucro: Number(r[8]) || 0,
+      quantidadeVenda: Number(r[9]) || 1,
     });
   }
   return lista.reverse();
@@ -458,6 +496,68 @@ function lerSaidas() {
     });
   }
   return lista.reverse();
+}
+
+function lerEstoque() {
+  var sheet = obterAba(ABA_ESTOQUE, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var valores = sheet.getDataRange().getValues();
+  var lista = [];
+  for (var i = 1; i < valores.length; i++) {
+    var r = valores[i];
+    if (!r[0]) continue;
+    lista.push({
+      idRaiz: String(r[0]),
+      filamento: String(r[1] || ""),
+      qtdEstoque: Number(r[2]) || 0,
+      precoRef: Number(r[3]) || 0,
+      ultimaAtualizacao: formatarData(r[4]),
+    });
+  }
+  return lista;
+}
+
+function buscarLinhaEstoque(sheet, idRaiz, filamento) {
+  var valores = sheet.getDataRange().getValues();
+  var alvoRaiz = String(idRaiz);
+  var alvoFil = String(filamento || "");
+  for (var i = 1; i < valores.length; i++) {
+    if (String(valores[i][0]) === alvoRaiz && String(valores[i][1] || "") === alvoFil) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+function entradaEstoque(idRaiz, filamento, qtd, precoUnit) {
+  var sheet = ensureSheet(ABA_ESTOQUE, CABECALHO_ESTOQUE);
+  var linha = buscarLinhaEstoque(sheet, idRaiz, filamento);
+  var agora = new Date();
+  if (linha < 0) {
+    sheet.appendRow([idRaiz, filamento, qtd, precoUnit, agora]);
+    return { idRaiz: idRaiz, qtdEstoque: qtd };
+  }
+  var atual = Number(sheet.getRange(linha, 3).getValue()) || 0;
+  var novaQtd = atual + qtd;
+  sheet.getRange(linha, 3).setValue(novaQtd);
+  sheet.getRange(linha, 4).setValue(precoUnit);
+  sheet.getRange(linha, 5).setValue(agora);
+  return { idRaiz: idRaiz, qtdEstoque: novaQtd };
+}
+
+function saidaEstoque(idRaiz, filamento, qtd) {
+  var sheet = obterAba(ABA_ESTOQUE, null, false);
+  if (!sheet) return { ok: false, error: "Aba Estoque não encontrada" };
+  var linha = buscarLinhaEstoque(sheet, idRaiz, filamento);
+  if (linha < 0) return { ok: false, error: "Item não encontrado no estoque" };
+  var atual = Number(sheet.getRange(linha, 3).getValue()) || 0;
+  if (atual < qtd) {
+    return { ok: false, error: "Estoque insuficiente (disponível: " + atual + ")" };
+  }
+  var novaQtd = atual - qtd;
+  sheet.getRange(linha, 3).setValue(novaQtd);
+  sheet.getRange(linha, 5).setValue(new Date());
+  return { ok: true, idRaiz: idRaiz, qtdEstoque: novaQtd };
 }
 
 function calcularFinanceiro() {
@@ -586,6 +686,9 @@ function gravarCusto(p) {
     agora, p.projetoId, num(c.insumos),
   ]);
 
+  var precoUnit = qtd > 0 ? round2(num(p.precoSugerido) / qtd) : 0;
+  entradaEstoque(extrairIdRaiz(p.projetoId), String(p.filamento || ""), qtd, precoUnit);
+
   return { projetoId: p.projetoId, custoTotal: num(p.custoTotal) };
 }
 
@@ -649,17 +752,35 @@ function gravarVenda(p) {
   var agora = new Date();
   var valorVenda = num(p.valorVenda);
   var custoTotal = num(p.custoTotal);
+  var qtdVenda = Math.max(1, Math.floor(num(p.quantidadeVenda) || 1));
   var lucro = round2(valorVenda - custoTotal);
   var proj = buscarProjeto(p.projetoId);
   var respProj = p.responsavelProjeto || (proj ? proj.responsavelProjeto : "");
+  var filamento = proj ? proj.filamento : "";
 
-  ensureSheet(ABA_VENDAS, CABECALHO_VENDAS).appendRow([
-    agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
-    String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
-    custoTotal, lucro,
-  ]);
+  var estoque = saidaEstoque(extrairIdRaiz(p.projetoId), filamento, qtdVenda);
+  if (estoque && estoque.ok === false) {
+    throw new Error(estoque.error || "Falha ao baixar estoque");
+  }
 
-  return { projetoId: p.projetoId, lucro: lucro };
+  var sheetVendas = ensureSheet(ABA_VENDAS, CABECALHO_VENDAS);
+  var cabV = lerCabecalho(sheetVendas);
+  var comQtd = String(cabV[9] || "") === "Qtd Vendida";
+  if (comQtd) {
+    sheetVendas.appendRow([
+      agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
+      String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
+      custoTotal, lucro, qtdVenda,
+    ]);
+  } else {
+    sheetVendas.appendRow([
+      agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
+      String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
+      custoTotal, lucro,
+    ]);
+  }
+
+  return { projetoId: p.projetoId, lucro: lucro, qtdEstoque: estoque.qtdEstoque };
 }
 
 function gravarSaida(p) {
@@ -692,6 +813,7 @@ function inicializarAbas() {
     [ABA_INSUMOS, ["Data", "ID", "Custo"]],
     [ABA_VENDAS, CABECALHO_VENDAS],
     [ABA_SAIDAS, CABECALHO_SAIDAS],
+    [ABA_ESTOQUE, CABECALHO_ESTOQUE],
   ];
   for (var i = 0; i < abas.length; i++) {
     var sheet = obterAba(abas[i][0], abas[i][1], true);

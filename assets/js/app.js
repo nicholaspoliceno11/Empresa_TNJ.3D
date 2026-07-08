@@ -33,6 +33,8 @@
   let API_URL = resolveApiUrl();
   let DEMO = API_URL === "";
   let filamentos = [];
+  let custosReutilizados = null;
+  let filamentoResumoReuse = "";
 
   const $ = (id) => document.getElementById(id);
   const brl = (n) =>
@@ -137,6 +139,12 @@
       if (!resp.ok) throw new Error(resp.error);
       return resp;
     },
+    fetchEstoque: async () => {
+      if (DEMO) return [];
+      const data = await apiJsonp("estoque");
+      if (!data.ok) throw new Error(data.error);
+      return data.estoque || [];
+    },
   };
 
   function optionsFilamentos(sel) {
@@ -179,9 +187,20 @@
       wrap.appendChild(div);
       const sel = div.querySelector(".fil-select");
       optionsFilamentos(sel);
-      sel.addEventListener("change", () => onFilSelect(div));
-      div.querySelectorAll("input,select").forEach((n) => n.addEventListener("input", recalcular));
-      div.querySelector(".fil-ativo").addEventListener("change", recalcular);
+      sel.addEventListener("change", () => {
+        limparReutilizacao();
+        onFilSelect(div);
+      });
+      div.querySelectorAll("input,select").forEach((n) =>
+        n.addEventListener("input", () => {
+          limparReutilizacao();
+          recalcular();
+        })
+      );
+      div.querySelector(".fil-ativo").addEventListener("change", () => {
+        limparReutilizacao();
+        recalcular();
+      });
       if (i === 0) onFilSelect(div);
     }
   }
@@ -220,6 +239,48 @@
     });
   }
 
+  function limparReutilizacao() {
+    custosReutilizados = null;
+    filamentoResumoReuse = "";
+  }
+
+  function aplicarCustosReutilizados(r) {
+    if (!custosReutilizados) return r;
+    const q = r.quantidadePecas;
+    const u = custosReutilizados;
+    const margem = Calc.toNumber($("margem").value);
+    r.custosUnitarios = {
+      filamento: u.filamento,
+      energia: u.energia,
+      maoDeObra: u.maoDeObra,
+      custosFixos: u.custosFixos,
+      insumos: u.insumos,
+      total: Calc.round2(u.filamento + u.energia + u.maoDeObra + u.custosFixos + u.insumos),
+    };
+    r.custos = {
+      filamento: Calc.round2(u.filamento * q),
+      energia: Calc.round2(u.energia * q),
+      maoDeObra: Calc.round2(u.maoDeObra * q),
+      custosFixos: Calc.round2(u.custosFixos * q),
+      insumos: Calc.round2(u.insumos * q),
+    };
+    r.custoTotalUnitario = r.custosUnitarios.total;
+    r.custoTotal = Calc.round2(r.custoTotalUnitario * q);
+    r.margem = margem;
+    r.precoSugerido = Calc.round2(r.custoTotal * (1 + margem / 100));
+    r.lucroEstimado = Calc.round2(r.precoSugerido - r.custoTotal);
+    if (filamentoResumoReuse) r.filamentoResumo = filamentoResumoReuse;
+    r.tabelaMargens = [30, 50, 80, 100].map((m) => {
+      const preco = r.custoTotal * (1 + m / 100);
+      return {
+        margem: m,
+        precoSugerido: Calc.round2(preco),
+        lucroEstimado: Calc.round2(preco - r.custoTotal),
+      };
+    });
+    return r;
+  }
+
   function aplicarDetalheProjeto(detalhe) {
     $("qtdPecas").value = String(detalhe.quantidadePecas || 1);
     if ($("responsavel-projeto") && detalhe.responsavelProjeto) {
@@ -237,6 +298,8 @@
     if (detalhe.filamentos && detalhe.filamentos.length) {
       aplicarFilamentosSlots(detalhe.filamentos);
     }
+    custosReutilizados = detalhe.custosUnitarios || null;
+    filamentoResumoReuse = detalhe.filamento || "";
     recalcular();
   }
 
@@ -276,6 +339,7 @@
     const msg = $("reutilizar-msg");
     if (!sel || !sel.value) {
       if (msg) msg.textContent = "";
+      limparReutilizacao();
       await atualizarProjetoId();
       return;
     }
@@ -341,7 +405,8 @@
   }
 
   function recalcular() {
-    const r = Calc.calcular(lerEntradas());
+    let r = Calc.calcular(lerEntradas());
+    r = aplicarCustosReutilizados(r);
     $("r-filamento").textContent = brl(r.custos.filamento);
     $("r-energia").textContent = brl(r.custos.energia);
     $("r-maoobra").textContent = brl(r.custos.maoDeObra);
@@ -436,7 +501,7 @@
       quantidadePecas: r.quantidadePecas,
       impressora: $("impressora").selectedOptions[0]?.textContent || "",
       responsavelProjeto: $("responsavel-projeto").value,
-      filamento: r.filamentoResumo,
+      filamento: r.filamentoResumo || filamentoResumoReuse,
       filamentos: r.filamentos,
       quantidadeG: r.gramas,
       horas: Calc.round2(r.horas),
@@ -464,6 +529,7 @@
         $("qtdPecas").value = "1";
         $("reutilizar-projeto").value = "";
         $("reutilizar-msg").textContent = "";
+        limparReutilizacao();
         await atualizarProjetoId();
         await preencherSelectReutilizar();
       } else {
@@ -521,6 +587,7 @@
         if (v === "calculadora") preencherSelectReutilizar();
         if (v === "projetos") carregarProjetos();
         if (v === "vendas" && window.TNJVendas) window.TNJVendas.onShowVendas();
+        if (v === "estoque" && window.TNJEstoque) window.TNJEstoque.onShowEstoque();
       });
     });
   }
@@ -567,10 +634,15 @@
     initTabs();
     initConfig();
     if (window.TNJVendas) window.TNJVendas.initVendas();
+    if (window.TNJEstoque) window.TNJEstoque.initEstoque();
 
-    ["consumoW", "valorKwh", "maoDeObra", "taxaManutencao", "insumos", "margem", "qtdPecas"].forEach(
-      (id) => $(id).addEventListener("input", recalcular)
+    ["consumoW", "valorKwh", "maoDeObra", "taxaManutencao", "insumos"].forEach((id) =>
+      $(id).addEventListener("input", () => {
+        limparReutilizacao();
+        recalcular();
+      })
     );
+    ["margem", "qtdPecas"].forEach((id) => $(id).addEventListener("input", recalcular));
     $("btn-criar").addEventListener("click", criarCusto);
     $("btn-recarregar").addEventListener("click", carregarProjetos);
     $("reutilizar-projeto")?.addEventListener("change", aoSelecionarProjetoAnterior);
