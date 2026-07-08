@@ -35,6 +35,20 @@
   let filamentos = [];
   let custosReutilizados = null;
   let filamentoResumoReuse = "";
+  let filamentosReutilizados = null;
+  let idRaizReutilizado = "";
+
+  function extrairIdRaiz(projetoId) {
+    const m = String(projetoId || "").match(/^(PRJ-\d{8}-\d{3})/);
+    return m ? m[1] : String(projetoId || "").trim();
+  }
+
+  function normalizarMaterialNome(s) {
+    return String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^filamento\s+/i, "");
+  }
 
   const $ = (id) => document.getElementById(id);
   const brl = (n) =>
@@ -206,9 +220,14 @@
   }
 
   function indiceFilamentoPorMaterial(material) {
-    const nome = String(material || "").trim().toLowerCase();
+    const nome = normalizarMaterialNome(material);
     if (!nome) return 0;
-    const idx = filamentos.findIndex((f) => String(f.material).trim().toLowerCase() === nome);
+    let idx = filamentos.findIndex((f) => normalizarMaterialNome(f.material) === nome);
+    if (idx >= 0) return idx;
+    idx = filamentos.findIndex((f) => {
+      const m = normalizarMaterialNome(f.material);
+      return nome.includes(m) || m.includes(nome);
+    });
     return idx >= 0 ? idx : 0;
   }
 
@@ -242,6 +261,8 @@
   function limparReutilizacao() {
     custosReutilizados = null;
     filamentoResumoReuse = "";
+    filamentosReutilizados = null;
+    idRaizReutilizado = "";
   }
 
   function aplicarCustosReutilizados(r) {
@@ -270,6 +291,25 @@
     r.precoSugerido = Calc.round2(r.custoTotal * (1 + margem / 100));
     r.lucroEstimado = Calc.round2(r.precoSugerido - r.custoTotal);
     if (filamentoResumoReuse) r.filamentoResumo = filamentoResumoReuse;
+    if (filamentosReutilizados && filamentosReutilizados.length) {
+      const totalOrig = filamentosReutilizados.reduce((s, f) => s + (f.custoUnitario || 0), 0);
+      r.filamentos = filamentosReutilizados.map((f) => ({
+        material: f.material,
+        precoFilamentoKg: f.precoFilamentoKg,
+        gramas: f.gramas || 0,
+        horas: f.horas || 0,
+        custoUnitario:
+          totalOrig > 0
+            ? Calc.round2(u.filamento * ((f.custoUnitario || 0) / totalOrig))
+            : Calc.round2(u.filamento / filamentosReutilizados.length),
+      }));
+      if (!filamentoResumoReuse) {
+        r.filamentoResumo =
+          r.filamentos.length === 1
+            ? r.filamentos[0].material
+            : r.filamentos.map((f) => f.material).filter(Boolean).join(" + ");
+      }
+    }
     r.tabelaMargens = [30, 50, 80, 100].map((m) => {
       const preco = r.custoTotal * (1 + m / 100);
       return {
@@ -295,11 +335,36 @@
     if (detalhe.maoDeObra !== undefined) $("maoDeObra").value = detalhe.maoDeObra;
     if (detalhe.insumos !== undefined) $("insumos").value = detalhe.insumos;
     if (detalhe.margem !== undefined) $("margem").value = detalhe.margem;
-    if (detalhe.filamentos && detalhe.filamentos.length) {
-      aplicarFilamentosSlots(detalhe.filamentos);
-    }
+    const listaFil = detalhe.filamentos && detalhe.filamentos.length
+      ? detalhe.filamentos
+      : detalhe.filamento
+        ? [{ slot: 1, material: detalhe.filamento, ativo: true, quantidade: 0, tempo: 0 }]
+        : [];
+    if (listaFil.length) aplicarFilamentosSlots(listaFil);
     custosReutilizados = detalhe.custosUnitarios || null;
-    filamentoResumoReuse = detalhe.filamento || "";
+    filamentoResumoReuse = detalhe.filamento || listaFil.map((f) => f.material).filter(Boolean).join(" + ");
+    idRaizReutilizado = extrairIdRaiz(detalhe.projetoIdOrigem || detalhe.projetoId || "");
+    const filsAtivos = listaFil.filter((f) => f.ativo !== false);
+    filamentosReutilizados = filsAtivos.map((f) => {
+      const preco = Number(f.precoFilamentoKg) || 0;
+      const g = Calc.gramas(f.quantidade, f.unidadeQuantidade || "g");
+      const custoCalc = preco > 0 && g > 0 ? Calc.round2((preco / 1000) * g) : 0;
+      return {
+        material: f.material || "",
+        precoFilamentoKg: preco,
+        gramas: g,
+        horas: Calc.horas(f.tempo, f.unidadeTempo || "h"),
+        custoUnitario: custoCalc,
+      };
+    });
+    if (
+      filamentosReutilizados.length === 1 &&
+      !filamentosReutilizados[0].custoUnitario &&
+      detalhe.custosUnitarios
+    ) {
+      filamentosReutilizados[0].custoUnitario = detalhe.custosUnitarios.filamento;
+    }
+    filamentosReutilizados._qtdOrigem = detalhe.quantidadePecas || 1;
     recalcular();
   }
 
@@ -480,12 +545,14 @@
     try {
       const resp = await window.TNJApi.fetchProximoIdReutilizacao(projetoIdBase);
       campo.value = resp.projetoId;
+      idRaizReutilizado = resp.idRaiz || extrairIdRaiz(projetoIdBase);
     } catch {
       const raiz = String(projetoIdBase).match(/^(PRJ-\d{8}-\d{3})/)?.[1] || projetoIdBase;
       const hoje = new Date();
       const p = (n) => String(n).padStart(2, "0");
       const d = `${hoje.getFullYear()}${p(hoje.getMonth() + 1)}${p(hoje.getDate())}`;
       campo.value = `${raiz}-${d}`;
+      idRaizReutilizado = raiz;
     }
   }
 
@@ -501,8 +568,15 @@
       quantidadePecas: r.quantidadePecas,
       impressora: $("impressora").selectedOptions[0]?.textContent || "",
       responsavelProjeto: $("responsavel-projeto").value,
-      filamento: r.filamentoResumo || filamentoResumoReuse,
-      filamentos: r.filamentos,
+      filamento: filamentoResumoReuse || r.filamentoResumo,
+      filamentos: (filamentosReutilizados || r.filamentos).map((f) => ({
+        material: f.material,
+        precoFilamentoKg: f.precoFilamentoKg,
+        gramas: f.gramas,
+        horas: f.horas,
+        custoUnitario: f.custoUnitario || (r.quantidadePecas > 0 ? r.custos.filamento / r.quantidadePecas : 0),
+      })),
+      idRaiz: idRaizReutilizado || extrairIdRaiz(id),
       quantidadeG: r.gramas,
       horas: Calc.round2(r.horas),
       consumoW: Calc.toNumber($("consumoW").value),

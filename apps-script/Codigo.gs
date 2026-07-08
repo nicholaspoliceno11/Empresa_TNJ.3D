@@ -592,10 +592,29 @@ function calcularFinanceiro() {
 
 function buscarProjeto(projetoId) {
   var lista = lerProjetos();
+  var alvo = String(projetoId || "");
   for (var i = 0; i < lista.length; i++) {
-    if (lista[i].projetoId === projetoId) return lista[i];
+    if (lista[i].projetoId === alvo) return lista[i];
   }
   return null;
+}
+
+/** Filamento do projeto — busca pelo ID exato ou pelo ID raiz (primeiro registro). */
+function buscarFilamentoProjeto(projetoId) {
+  var proj = buscarProjeto(projetoId);
+  if (proj && proj.filamento) return String(proj.filamento);
+  var raiz = extrairIdRaiz(projetoId);
+  var lista = lerProjetos();
+  for (var i = lista.length - 1; i >= 0; i--) {
+    if (extrairIdRaiz(lista[i].projetoId) !== raiz) continue;
+    if (lista[i].filamento) return String(lista[i].filamento);
+  }
+  return "";
+}
+
+function idRaizProjeto(projetoId, idRaizInformado) {
+  if (idRaizInformado) return String(idRaizInformado);
+  return extrairIdRaiz(projetoId);
 }
 
 /* -------------------- Gravação -------------------- */
@@ -687,7 +706,10 @@ function gravarCusto(p) {
   ]);
 
   var precoUnit = qtd > 0 ? round2(num(p.precoSugerido) / qtd) : 0;
-  entradaEstoque(extrairIdRaiz(p.projetoId), String(p.filamento || ""), qtd, precoUnit);
+  var idRaiz = idRaizProjeto(p.projetoId, p.idRaiz);
+  var filamento = String(p.filamento || "");
+  if (!filamento) filamento = buscarFilamentoProjeto(p.projetoId);
+  entradaEstoque(idRaiz, filamento, qtd, precoUnit);
 
   return { projetoId: p.projetoId, custoTotal: num(p.custoTotal) };
 }
@@ -756,9 +778,10 @@ function gravarVenda(p) {
   var lucro = round2(valorVenda - custoTotal);
   var proj = buscarProjeto(p.projetoId);
   var respProj = p.responsavelProjeto || (proj ? proj.responsavelProjeto : "");
-  var filamento = proj ? proj.filamento : "";
+  var filamento = proj && proj.filamento ? String(proj.filamento) : buscarFilamentoProjeto(p.projetoId);
+  var idRaiz = idRaizProjeto(p.projetoId, p.idRaiz);
 
-  var estoque = saidaEstoque(extrairIdRaiz(p.projetoId), filamento, qtdVenda);
+  var estoque = saidaEstoque(idRaiz, filamento, qtdVenda);
   if (estoque && estoque.ok === false) {
     throw new Error(estoque.error || "Falha ao baixar estoque");
   }
