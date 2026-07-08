@@ -15,7 +15,7 @@
  *   POST { action: "proximoId" }   -> próximo código automático de projeto
  *   POST {json do custo}           -> grava o custo (sem campo action)
  *
- * GET também funciona ao abrir a URL no navegador (teste manual).
+ *   GET  ?action=inicializar   -> cria todas as abas com cabeçalhos (rode uma vez)
  */
 
 var ABA_FILAMENTOS = "Filamentos";
@@ -43,6 +43,8 @@ function doGet(e) {
       result = { ok: true, projetos: lerProjetos() };
     } else if (action === "proximoId") {
       result = { ok: true, projetoId: proximoProjetoId() };
+    } else if (action === "inicializar") {
+      result = { ok: true, abas: inicializarAbas() };
     } else {
       result = { ok: false, error: "Ação desconhecida: " + action };
     }
@@ -84,8 +86,7 @@ function parsePayload(e) {
 
 /* -------------------- Leitura -------------------- */
 function lerFilamentos() {
-  var sheet = planilha().getSheetByName(ABA_FILAMENTOS);
-  if (!sheet) throw new Error('Aba "' + ABA_FILAMENTOS + '" não encontrada.');
+  var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
   var valores = sheet.getDataRange().getValues();
   var lista = [];
   // Assume cabeçalho na linha 1: Material | Valor | QTD
@@ -200,6 +201,34 @@ function gravarCusto(p) {
   ]);
 
   return { projetoId: p.projetoId, custoTotal: num(p.custoTotal) };
+}
+
+/**
+ * Cria todas as abas com cabeçalhos (se ainda não existirem).
+ * Rode UMA VEZ no editor: selecione inicializarAbas › Executar.
+ * Ou abra no navegador: {URL}/exec?action=inicializar
+ */
+function inicializarAbas() {
+  var criadas = [];
+  ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
+  criadas.push(ABA_FILAMENTOS);
+  ensureSheet(ABA_PROJETOS, CABECALHO_PROJETOS);
+  criadas.push(ABA_PROJETOS);
+  ensureSheet(ABA_FILAMENTO_CUSTO, [
+    "Data", "ID", "Qtd Peças", "Filamento", "Preço/Kg", "Qtd (g)", "Custo",
+  ]);
+  criadas.push(ABA_FILAMENTO_CUSTO);
+  ensureSheet(ABA_ENERGIA, [
+    "Data", "ID", "Impressora", "Consumo (W)", "Tempo (h)", "kWh", "Custo",
+  ]);
+  criadas.push(ABA_ENERGIA);
+  ensureSheet(ABA_MAO_DE_OBRA, ["Data", "ID", "Custo"]);
+  criadas.push(ABA_MAO_DE_OBRA);
+  ensureSheet(ABA_MANUTENCAO, ["Data", "ID", "Tempo (h)", "Custo"]);
+  criadas.push(ABA_MANUTENCAO);
+  ensureSheet(ABA_INSUMOS, ["Data", "ID", "Custo"]);
+  criadas.push(ABA_INSUMOS);
+  return criadas;
 }
 
 /* -------------------- Utilitários -------------------- */
