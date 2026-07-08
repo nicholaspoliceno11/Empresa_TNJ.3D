@@ -427,3 +427,11 @@ table {
   margin-top: 20px;
   font-size: 13px;
 }
+.field-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+input[readonly] {
+  opacity: 0.85;
+  cursor: default;
+}

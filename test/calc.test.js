@@ -78,3 +78,10 @@ test("toNumber aceita formato brasileiro", () => {
   assert.strictEqual(Calc.toNumber("0,85"), 0.85);
   assert.strictEqual(Calc.toNumber(""), 0);
 });
+
+test("quantidade de peças multiplica o custo total do lote", () => {
+  const r = Calc.calcular({ ...base, quantidadePecas: 3 });
+  assert.strictEqual(r.quantidadePecas, 3);
+  assert.strictEqual(r.custoTotalUnitario, 10.26);
+  assert.strictEqual(r.custoTotal, 30.79);
+});

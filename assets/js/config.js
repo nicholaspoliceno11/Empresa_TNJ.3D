@@ -17,7 +17,14 @@ window.TNJConfig = {
   PLANILHA_URL:
     "https://docs.google.com/spreadsheets/d/1IRR33vv1pUYtr87Q6OpktZR3WfPHrXUrv2aOq4o1pAA/edit",
 
-  EMPRESA: "TNJ.3D",
+  // Impressoras disponíveis (consumo em W usado no cálculo de energia).
+  IMPRESSORAS: [
+    { id: "a1", nome: "Bambum Lab A1", consumoW: 200 },
+    { id: "a1-ams", nome: "Bambum Lab A1 - AMS", consumoW: 280 },
+  ],
+
+  // Prefixo do código automático de projeto (ex.: PRJ-20260708-001).
+  PREFIXO_PROJETO: "PRJ",
 
   // Valores padrão iguais aos da planilha (aba "Calculadora").
   PADROES: {

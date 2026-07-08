@@ -2,7 +2,9 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <meta
       name="description"
@@ -13,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="assets/css/styles.css" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=3" />
   </head>
   <body>
     <header class="topbar">
@@ -112,9 +114,26 @@
             </fieldset>
 
             <fieldset>
+              <legend>Impressora</legend>
+              <label for="impressora">Impressora utilizada</label>
+              <select id="impressora"></select>
+            </fieldset>
+
+            <fieldset>
               <legend>Projeto</legend>
-              <label for="projetoId">ID do projeto</label>
-              <input id="projetoId" type="text" placeholder="Ex.: PRJ-001" />
+              <div class="row">
+                <div>
+                  <label for="projetoId">ID do projeto</label>
+                  <input id="projetoId" type="text" readonly title="Gerado automaticamente" />
+                </div>
+                <div>
+                  <label for="qtdPecas">Quantidade de peças</label>
+                  <input id="qtdPecas" type="number" step="1" min="1" value="1" />
+                </div>
+              </div>
+              <p class="muted field-hint">
+                O ID é gerado automaticamente. Use a quantidade para lotes com várias peças iguais.
+              </p>
             </fieldset>
 
             <div class="actions">
@@ -171,7 +190,7 @@
             <table class="projetos">
               <thead>
                 <tr>
-                  <th>Data</th><th>ID</th><th>Filamento</th>
+                  <th>Data</th><th>ID</th><th>Qtd</th><th>Impressora</th><th>Filamento</th>
                   <th>Filamento R$</th><th>Energia R$</th><th>Mão de obra R$</th>
                   <th>Manutenção R$</th><th>Insumos R$</th>
                   <th>Custo total</th><th>Margem %</th><th>Preço sugerido</th>
@@ -243,8 +262,8 @@
       <span id="mode-badge" class="badge">—</span>
     </footer>
 
-    <script src="assets/js/calc.js"></script>
-    <script src="assets/js/config.js"></script>
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/calc.js?v=3"></script>
+    <script src="assets/js/config.js?v=3"></script>
+    <script src="assets/js/app.js?v=3"></script>
   </body>
 </html>

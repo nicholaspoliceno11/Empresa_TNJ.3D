@@ -66,13 +66,22 @@
     const taxaManutencaoHora = toNumber(input.taxaManutencaoHora);
     const insumos = toNumber(input.insumos);
     const margem = toNumber(input.margem);
+    const qtdPecas = Math.max(1, Math.floor(toNumber(input.quantidadePecas) || 1));
 
-    const custoFilamento = (precoKg / 1000) * g;
-    const custoEnergia = (consumoW / 1000) * h * valorKwh;
-    const custosFixos = taxaManutencaoHora * h;
+    const custoFilamentoUnit = (precoKg / 1000) * g;
+    const custoEnergiaUnit = (consumoW / 1000) * h * valorKwh;
+    const custosFixosUnit = taxaManutencaoHora * h;
 
+    const custoFilamento = custoFilamentoUnit * qtdPecas;
+    const custoEnergia = custoEnergiaUnit * qtdPecas;
+    const custosFixos = custosFixosUnit * qtdPecas;
+    const maoDeObraTotal = maoDeObra * qtdPecas;
+    const insumosTotal = insumos * qtdPecas;
+
+    const custoTotalUnit =
+      custoFilamentoUnit + custoEnergiaUnit + maoDeObra + custosFixosUnit + insumos;
     const custoTotal =
-      custoFilamento + custoEnergia + maoDeObra + custosFixos + insumos;
+      custoFilamento + custoEnergia + maoDeObraTotal + custosFixos + insumosTotal;
 
     const precoSugerido = custoTotal * (1 + margem / 100);
     const lucroEstimado = precoSugerido - custoTotal;
@@ -89,13 +98,23 @@
     return {
       gramas: round2(g),
       horas: h,
+      quantidadePecas: qtdPecas,
+      custosUnitarios: {
+        filamento: round2(custoFilamentoUnit),
+        energia: round2(custoEnergiaUnit),
+        maoDeObra: round2(maoDeObra),
+        custosFixos: round2(custosFixosUnit),
+        insumos: round2(insumos),
+        total: round2(custoTotalUnit),
+      },
       custos: {
         filamento: round2(custoFilamento),
         energia: round2(custoEnergia),
-        maoDeObra: round2(maoDeObra),
+        maoDeObra: round2(maoDeObraTotal),
         custosFixos: round2(custosFixos),
-        insumos: round2(insumos),
+        insumos: round2(insumosTotal),
       },
+      custoTotalUnitario: round2(custoTotalUnit),
       custoTotal: round2(custoTotal),
       margem,
       precoSugerido: round2(precoSugerido),

@@ -5,6 +5,7 @@
   const cfg = window.TNJConfig;
   const Calc = window.TNJCalc;
   const STORAGE_KEY = "tnj_api_url";
+  const SEQ_KEY = "tnj_projeto_seq";
 
   function resolveApiUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -17,13 +18,15 @@
       }
       return fromQuery;
     }
+    const fromConfig = (cfg.API_URL || "").trim();
+    if (fromConfig) return fromConfig;
     try {
       const fromStorage = (localStorage.getItem(STORAGE_KEY) || "").trim();
       if (fromStorage) return fromStorage;
     } catch {
       /* localStorage indisponível */
     }
-    return (cfg.API_URL || "").trim();
+    return "";
   }
 
   let API_URL = resolveApiUrl();
@@ -44,7 +47,9 @@
     taxaManutencao: $("taxaManutencao"),
     insumos: $("insumos"),
     margem: $("margem"),
+    impressora: $("impressora"),
     projetoId: $("projetoId"),
+    qtdPecas: $("qtdPecas"),
     btnCriar: $("btn-criar"),
     saveMsg: $("save-msg"),
     // resultados
@@ -99,6 +104,63 @@
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || "Falha ao carregar projetos");
     return data.projetos;
+  }
+
+  async function fetchProximoId() {
+    if (DEMO) return gerarIdLocal();
+    const res = await fetch(apiUrl({ action: "proximoId" }));
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Falha ao gerar ID");
+    return data.projetoId;
+  }
+
+  function hojeCompacto() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  }
+
+  function gerarIdLocal() {
+    const hoje = hojeCompacto();
+    const chave = `${SEQ_KEY}_${hoje}`;
+    let seq = Number(localStorage.getItem(chave) || "0") + 1;
+    localStorage.setItem(chave, String(seq));
+    const prefixo = cfg.PREFIXO_PROJETO || "PRJ";
+    return `${prefixo}-${hoje}-${String(seq).padStart(3, "0")}`;
+  }
+
+  async function atualizarProjetoId() {
+    try {
+      el.projetoId.value = await fetchProximoId();
+    } catch (e) {
+      el.projetoId.value = gerarIdLocal();
+      console.warn("Usando ID local:", e);
+    }
+  }
+
+  function preencherImpressoras() {
+    const lista = cfg.IMPRESSORAS || [];
+    el.impressora.innerHTML = "";
+    lista.forEach((imp, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = imp.nome;
+      el.impressora.appendChild(opt);
+    });
+    aoSelecionarImpressora();
+  }
+
+  function aoSelecionarImpressora() {
+    const imp = (cfg.IMPRESSORAS || [])[Number(el.impressora.value)];
+    if (imp && imp.consumoW) {
+      el.consumoW.value = imp.consumoW;
+      recalcular();
+    }
+  }
+
+  function impressoraSelecionada() {
+    const imp = (cfg.IMPRESSORAS || [])[Number(el.impressora.value)];
+    return imp ? imp.nome : "";
   }
 
   async function salvarCusto(payload) {
@@ -257,6 +319,7 @@
       taxaManutencaoHora: el.taxaManutencao.value,
       insumos: el.insumos.value,
       margem: el.margem.value,
+      quantidadePecas: el.qtdPecas.value,
     };
   }
 
@@ -285,14 +348,16 @@
   async function criarCusto() {
     const id = el.projetoId.value.trim();
     if (!id) {
-      el.projetoId.focus();
-      showSave("Informe o ID do projeto.", "err");
+      await atualizarProjetoId();
+      showSave("Gerando ID do projeto…", "");
       return;
     }
     const r = recalcular();
     const f = filamentos[Number(el.filamento.value)];
     const payload = {
       projetoId: id,
+      quantidadePecas: r.quantidadePecas,
+      impressora: impressoraSelecionada(),
       filamento: f ? f.material : "",
       precoFilamentoKg: Calc.toNumber(el.preco.value),
       quantidadeG: r.gramas,
@@ -301,6 +366,8 @@
       valorKwh: Calc.toNumber(el.valorKwh.value),
       margem: r.margem,
       custos: r.custos,
+      custosUnitarios: r.custosUnitarios,
+      custoTotalUnitario: r.custoTotalUnitario,
       custoTotal: r.custoTotal,
       precoSugerido: r.precoSugerido,
       lucroEstimado: r.lucroEstimado,
@@ -313,11 +380,12 @@
       if (resp && resp.ok) {
         showSave(
           resp.demo
-            ? "Custo calculado (modo demonstração — configure a API para gravar na planilha)."
-            : "Custo criado e gravado nas abas da planilha!",
+            ? `Custo calculado (${id}, ${r.quantidadePecas} peça(s)) — modo demonstração.`
+            : `Custo ${id} gravado na planilha (${r.quantidadePecas} peça(s))!`,
           "ok"
         );
-        el.projetoId.value = "";
+        el.qtdPecas.value = "1";
+        await atualizarProjetoId();
         if (!DEMO) carregarProjetos();
       } else {
         showSave("Erro: " + (resp && resp.error ? resp.error : "desconhecido"), "err");
@@ -349,6 +417,8 @@
         tr.innerHTML = [
           p.data || "",
           p.projetoId || "",
+          p.quantidadePecas || 1,
+          p.impressora || "",
           p.filamento || "",
           brl(p.custoFilamento || 0),
           brl(p.custoEnergia || 0),
@@ -386,6 +456,7 @@
 
   function initEvents() {
     el.filamento.addEventListener("change", aoSelecionarFilamento);
+    el.impressora.addEventListener("change", aoSelecionarImpressora);
     [
       "preco",
       "quantidade",
@@ -398,6 +469,7 @@
       "taxaManutencao",
       "insumos",
       "margem",
+      "qtdPecas",
     ].forEach((k) => el[k].addEventListener("input", recalcular));
     el.btnCriar.addEventListener("click", criarCusto);
     el.btnRecarregar.addEventListener("click", carregarProjetos);
@@ -406,11 +478,13 @@
   /* --------------------- Bootstrap --------------------- */
   async function init() {
     preencherPadroes();
+    preencherImpressoras();
     initTabs();
     initEvents();
     initConfig();
     initConfigEvents();
     setConn(DEMO ? "demo" : "ok", DEMO ? "modo demonstração" : "conectando…");
+    await atualizarProjetoId();
     try {
       const lista = await fetchFilamentos();
       preencherFilamentos(lista);
