@@ -146,6 +146,20 @@ function detectarFormatoProjetos(cab) {
   return "antigo";
 }
 
+function detectarFormatoFilCusto(cab) {
+  if (!cab || cab.length < 4) return "antigo";
+  if (String(cab[3]) === "Slot") {
+    return String(cab[7] || "") === "Tempo (h)" ? "slotTempo" : "slot";
+  }
+  if (String(cab[2]) === "Qtd Peças") return "qtd";
+  return "antigo";
+}
+
+function lerCabecalho(sheet) {
+  if (!sheet || sheet.getLastRow() === 0) return [];
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+}
+
 function lerProjetos() {
   var sheet = obterAba(ABA_PROJETOS, null, false);
   if (!sheet) return [];
@@ -235,13 +249,13 @@ function lerFilamentosRegistro(projetoId, dataReg) {
   var sheet = obterAba(ABA_FILAMENTO_CUSTO, null, false);
   if (!sheet || sheet.getLastRow() < 2) return [];
   var valores = sheet.getDataRange().getValues();
-  var comSlot = String(valores[0][3] || "") === "Slot";
+  var formato = detectarFormatoFilCusto(valores[0]);
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var row = valores[i];
     if (String(row[1]) !== String(projetoId)) continue;
     if (!datasCompativeis(row[0], dataReg)) continue;
-    if (comSlot) {
+    if (formato === "slotTempo") {
       lista.push({
         slot: Number(row[3]) || lista.length + 1,
         material: String(row[4] || ""),
@@ -252,12 +266,34 @@ function lerFilamentosRegistro(projetoId, dataReg) {
         unidadeTempo: "h",
         ativo: true,
       });
-    } else {
+    } else if (formato === "slot") {
+      lista.push({
+        slot: Number(row[3]) || lista.length + 1,
+        material: String(row[4] || ""),
+        precoFilamentoKg: Number(row[5]) || 0,
+        quantidade: Number(row[6]) || 0,
+        unidadeQuantidade: "g",
+        tempo: 0,
+        unidadeTempo: "h",
+        ativo: true,
+      });
+    } else if (formato === "qtd") {
       lista.push({
         slot: lista.length + 1,
         material: String(row[3] || ""),
         precoFilamentoKg: Number(row[4]) || 0,
         quantidade: Number(row[5]) || 0,
+        unidadeQuantidade: "g",
+        tempo: 0,
+        unidadeTempo: "h",
+        ativo: true,
+      });
+    } else {
+      lista.push({
+        slot: lista.length + 1,
+        material: String(row[2] || ""),
+        precoFilamentoKg: Number(row[3]) || 0,
+        quantidade: Number(row[4]) || 0,
         unidadeQuantidade: "g",
         tempo: 0,
         unidadeTempo: "h",
@@ -473,37 +509,28 @@ function gravarCusto(p) {
   var agora = new Date();
   var c = p.custos || {};
   var qtd = num(p.quantidadePecas) || 1;
+  var horas = round2(num(p.horas));
 
-  ensureSheet(ABA_PROJETOS, CABECALHO_PROJETOS).appendRow([
-    agora, p.projetoId, qtd, String(p.responsavelProjeto || ""), String(p.impressora || ""),
-    p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
-    num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
-    num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
-  ]);
+  var sheetProj = ensureSheet(ABA_PROJETOS, CABECALHO_PROJETOS);
+  gravarLinhaProjeto(sheetProj, agora, p, c, qtd);
 
   var sheetFil = ensureSheet(ABA_FILAMENTO_CUSTO, CABECALHO_FIL_CUSTO);
   var fils = p.filamentos && p.filamentos.length ? p.filamentos : [
-  {
-    material: p.filamento || "",
-    precoFilamentoKg: num(p.precoFilamentoKg),
-    gramas: num(p.quantidadeG),
-    horas: num(p.horas),
-    custoUnitario: qtd > 0 ? num(c.filamento) / qtd : 0,
-  },
+    {
+      material: p.filamento || "",
+      precoFilamentoKg: num(p.precoFilamentoKg),
+      gramas: num(p.quantidadeG),
+      horas: horas,
+      custoUnitario: qtd > 0 ? num(c.filamento) / qtd : 0,
+    },
   ];
-  fils.forEach(function (f, idx) {
-    sheetFil.appendRow([
-      agora, p.projetoId, qtd, idx + 1, f.material || "",
-      num(f.precoFilamentoKg), num(f.gramas), num(f.horas),
-      round2(num(f.custoUnitario) * qtd),
-    ]);
-  });
+  gravarLinhasFilamento(sheetFil, agora, p.projetoId, qtd, fils);
 
   ensureSheet(ABA_ENERGIA, [
     "Data", "ID", "Impressora", "Consumo (W)", "Tempo (h)", "kWh", "Custo",
   ]).appendRow([
     agora, p.projetoId, String(p.impressora || ""),
-    num(p.consumoW), num(p.horas), num(p.valorKwh), num(c.energia),
+    num(p.consumoW), horas, num(p.valorKwh), num(c.energia),
   ]);
 
   ensureSheet(ABA_MAO_DE_OBRA, ["Data", "ID", "Custo"]).appendRow([
@@ -511,15 +538,13 @@ function gravarCusto(p) {
   ]);
 
   var sheetManut = obterAba(ABA_MANUTENCAO, ["Data", "ID", "Taxa (R$/h)", "Tempo (h)", "Custo"]);
-  var cabManut = sheetManut.getLastRow() > 0
-    ? sheetManut.getRange(1, 1, 1, sheetManut.getLastColumn()).getValues()[0]
-    : [];
+  var cabManut = lerCabecalho(sheetManut);
   if (String(cabManut[2] || "") === "Taxa (R$/h)") {
     sheetManut.appendRow([
-      agora, p.projetoId, num(p.taxaManutencaoHora), num(p.horas), num(c.custosFixos),
+      agora, p.projetoId, num(p.taxaManutencaoHora), horas, num(c.custosFixos),
     ]);
   } else {
-    sheetManut.appendRow([agora, p.projetoId, num(p.horas), num(c.custosFixos)]);
+    sheetManut.appendRow([agora, p.projetoId, horas, num(c.custosFixos)]);
   }
 
   ensureSheet(ABA_INSUMOS, ["Data", "ID", "Custo"]).appendRow([
@@ -527,6 +552,62 @@ function gravarCusto(p) {
   ]);
 
   return { projetoId: p.projetoId, custoTotal: num(p.custoTotal) };
+}
+
+function gravarLinhaProjeto(sheet, agora, p, c, qtd) {
+  var formato = detectarFormatoProjetos(lerCabecalho(sheet));
+  if (formato === "comResp") {
+    sheet.appendRow([
+      agora, p.projetoId, qtd, String(p.responsavelProjeto || ""), String(p.impressora || ""),
+      p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
+      num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
+      num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
+    ]);
+    return;
+  }
+  if (formato === "qtd") {
+    sheet.appendRow([
+      agora, p.projetoId, qtd, String(p.impressora || ""),
+      p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
+      num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
+      num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
+    ]);
+    return;
+  }
+  sheet.appendRow([
+    agora, p.projetoId, p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
+    num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.margem),
+    num(p.precoSugerido), num(p.lucroEstimado),
+  ]);
+}
+
+function gravarLinhasFilamento(sheet, agora, projetoId, qtd, fils) {
+  var formato = detectarFormatoFilCusto(lerCabecalho(sheet));
+  fils.forEach(function (f, idx) {
+    var horasFil = round2(num(f.horas));
+    var custoLote = round2(num(f.custoUnitario) * qtd);
+    if (formato === "slotTempo") {
+      sheet.appendRow([
+        agora, projetoId, qtd, idx + 1, f.material || "",
+        num(f.precoFilamentoKg), num(f.gramas), horasFil, custoLote,
+      ]);
+    } else if (formato === "slot") {
+      sheet.appendRow([
+        agora, projetoId, qtd, idx + 1, f.material || "",
+        num(f.precoFilamentoKg), num(f.gramas), custoLote,
+      ]);
+    } else if (formato === "qtd") {
+      sheet.appendRow([
+        agora, projetoId, qtd, f.material || "",
+        num(f.precoFilamentoKg), num(f.gramas), custoLote,
+      ]);
+    } else {
+      sheet.appendRow([
+        agora, projetoId, f.material || "",
+        num(f.precoFilamentoKg), num(f.gramas), custoLote,
+      ]);
+    }
+  });
 }
 
 function gravarVenda(p) {

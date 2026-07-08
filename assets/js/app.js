@@ -231,8 +231,12 @@
   async function preencherSelectReutilizar() {
     const sel = $("reutilizar-projeto");
     if (!sel) return;
+    const msg = $("reutilizar-msg");
     sel.innerHTML = '<option value="">— Novo projeto em branco —</option>';
-    if (DEMO) return;
+    if (DEMO) {
+      if (msg) msg.textContent = "Conecte à planilha para listar projetos anteriores.";
+      return;
+    }
     try {
       const lista = await window.TNJApi.fetchProjetos();
       lista.forEach((p) => {
@@ -241,8 +245,17 @@
         o.textContent = `${p.projetoId} — ${p.filamento || "sem filamento"} — ${p.data} (qtd ${p.quantidadePecas || 1})`;
         sel.appendChild(o);
       });
-    } catch {
-      /* ignore */
+      if (msg) {
+        msg.textContent = lista.length
+          ? `${lista.length} projeto(s) disponível(is) para reutilizar.`
+          : "Nenhum projeto registrado ainda.";
+        msg.className = "save-msg ok";
+      }
+    } catch (e) {
+      if (msg) {
+        msg.textContent = "Não foi possível carregar projetos: " + e.message;
+        msg.className = "save-msg err";
+      }
     }
   }
 
@@ -357,7 +370,7 @@
     recalcular();
   }
 
-  window.TNJApp = { recarregarFilamentos };
+  window.TNJApp = { recarregarFilamentos, preencherSelectReutilizar };
 
   function gerarIdLocal() {
     const hoje = new Date();
@@ -394,7 +407,7 @@
       filamento: r.filamentoResumo,
       filamentos: r.filamentos,
       quantidadeG: r.gramas,
-      horas: r.horas,
+      horas: Calc.round2(r.horas),
       consumoW: Calc.toNumber($("consumoW").value),
       valorKwh: Calc.toNumber($("valorKwh").value),
       taxaManutencaoHora: Calc.toNumber($("taxaManutencao").value),
@@ -473,6 +486,7 @@
         btn.classList.add("active");
         $("view-" + btn.dataset.view).classList.add("active");
         const v = btn.dataset.view;
+        if (v === "calculadora") preencherSelectReutilizar();
         if (v === "projetos") carregarProjetos();
         if (v === "vendas" && window.TNJVendas) window.TNJVendas.onShowVendas();
       });
@@ -546,7 +560,6 @@
 
     setConn(DEMO ? "demo" : "ok", DEMO ? "modo demonstração" : "conectando…");
     await atualizarProjetoId();
-    await preencherSelectReutilizar();
     try {
       filamentos = await fetchFilamentos();
       document.querySelectorAll(".fil-select").forEach((sel) => optionsFilamentos(sel));
@@ -554,6 +567,7 @@
         if (i === 0) onFilSelect(slot);
       });
       if (!DEMO) setConn("ok", "conectado");
+      await preencherSelectReutilizar();
     } catch {
       filamentos = cfg.FILAMENTOS_DEMO.slice();
       document.querySelectorAll(".fil-select").forEach((sel) => optionsFilamentos(sel));
