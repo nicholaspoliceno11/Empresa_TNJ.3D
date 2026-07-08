@@ -73,6 +73,10 @@ function rotearAcao(action, e, payload) {
   if (action === "proximoId") {
     return { ok: true, projetoId: proximoProjetoId() };
   }
+  if (action === "proximoIdReutilizacao") {
+    var pidReu = (e && e.parameter && e.parameter.projetoId) || (payload && payload.projetoId);
+    return { ok: true, projetoId: proximoIdReutilizacao(pidReu), idRaiz: extrairIdRaiz(pidReu) };
+  }
   if (action === "vendas") {
     return { ok: true, vendas: lerVendas() };
   }
@@ -503,6 +507,37 @@ function proximoProjetoId() {
     seq = sheet.getLastRow();
   }
   return PREFIXO_PROJETO + "-" + hoje + "-" + String(seq).padStart(3, "0");
+}
+
+/**
+ * Gera ID derivado do projeto original: PRJ-20260707-002 → PRJ-20260707-002-20260708
+ * Se já existir no mesmo dia, acrescenta -2, -3…
+ */
+function extrairIdRaiz(projetoId) {
+  var m = String(projetoId || "").match(/^(PRJ-\d{8}-\d{3})/);
+  return m ? m[1] : String(projetoId || "").trim();
+}
+
+function listarIdsProjetos() {
+  var sheet = obterAba(ABA_PROJETOS, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var valores = sheet.getDataRange().getValues();
+  var ids = [];
+  for (var i = 1; i < valores.length; i++) {
+    if (valores[i][1]) ids.push(String(valores[i][1]));
+  }
+  return ids;
+}
+
+function proximoIdReutilizacao(projetoId) {
+  var raiz = extrairIdRaiz(projetoId);
+  var hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
+  var prefixo = raiz + "-" + hoje;
+  var ids = listarIdsProjetos();
+  if (ids.indexOf(prefixo) < 0) return prefixo;
+  var n = 2;
+  while (ids.indexOf(prefixo + "-" + n) >= 0) n++;
+  return prefixo + "-" + n;
 }
 
 function gravarCusto(p) {

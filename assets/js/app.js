@@ -125,6 +125,18 @@
       if (!resp.ok) throw new Error(resp.error);
       return resp.detalhe;
     },
+    fetchProximoIdReutilizacao: async (projetoId) => {
+      if (DEMO) {
+        const raiz = String(projetoId).match(/^(PRJ-\d{8}-\d{3})/)?.[1] || projetoId;
+        const hoje = new Date();
+        const p = (n) => String(n).padStart(2, "0");
+        const d = `${hoje.getFullYear()}${p(hoje.getMonth() + 1)}${p(hoje.getDate())}`;
+        return { projetoId: `${raiz}-${d}`, idRaiz: raiz };
+      }
+      const resp = await apiJsonp("proximoIdReutilizacao", { projetoId });
+      if (!resp.ok) throw new Error(resp.error);
+      return resp;
+    },
   };
 
   function optionsFilamentos(sel) {
@@ -264,6 +276,7 @@
     const msg = $("reutilizar-msg");
     if (!sel || !sel.value) {
       if (msg) msg.textContent = "";
+      await atualizarProjetoId();
       return;
     }
     const [projetoId, data] = sel.value.split("|");
@@ -274,9 +287,10 @@
     try {
       const detalhe = await window.TNJApi.fetchProjetoDetalhe(projetoId, data);
       aplicarDetalheProjeto(detalhe);
-      await atualizarProjetoId();
+      await atualizarIdReutilizacao(projetoId);
       if (msg) {
-        msg.textContent = `Dados de ${projetoId} carregados. Ajuste a quantidade e clique em Criar custo.`;
+        msg.textContent =
+          `Dados de ${projetoId} carregados. ID derivado — pode editar o final se quiser. Ajuste a quantidade e clique em Criar custo.`;
         msg.className = "save-msg ok";
       }
     } catch (e) {
@@ -383,12 +397,30 @@
   }
 
   async function atualizarProjetoId() {
+    const campo = $("projetoId");
+    if (campo) campo.setAttribute("readonly", "");
     try {
       if (DEMO) throw new Error("demo");
       const data = await apiJsonp("proximoId");
       $("projetoId").value = data.projetoId;
     } catch {
       $("projetoId").value = gerarIdLocal();
+    }
+  }
+
+  async function atualizarIdReutilizacao(projetoIdBase) {
+    const campo = $("projetoId");
+    if (!campo) return;
+    campo.removeAttribute("readonly");
+    try {
+      const resp = await window.TNJApi.fetchProximoIdReutilizacao(projetoIdBase);
+      campo.value = resp.projetoId;
+    } catch {
+      const raiz = String(projetoIdBase).match(/^(PRJ-\d{8}-\d{3})/)?.[1] || projetoIdBase;
+      const hoje = new Date();
+      const p = (n) => String(n).padStart(2, "0");
+      const d = `${hoje.getFullYear()}${p(hoje.getMonth() + 1)}${p(hoje.getDate())}`;
+      campo.value = `${raiz}-${d}`;
     }
   }
 
