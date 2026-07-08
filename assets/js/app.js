@@ -116,6 +116,15 @@
       if (!data.ok) throw new Error(data.error);
       return data.projetos;
     },
+    fetchProjetoDetalhe: async (projetoId, dataRegistro) => {
+      if (DEMO) throw new Error("Indisponível no modo demonstração");
+      const resp = await apiJsonp("projetoDetalhe", {
+        projetoId,
+        data: dataRegistro || "",
+      });
+      if (!resp.ok) throw new Error(resp.error);
+      return resp.detalhe;
+    },
   };
 
   function optionsFilamentos(sel) {
@@ -162,6 +171,106 @@
       div.querySelectorAll("input,select").forEach((n) => n.addEventListener("input", recalcular));
       div.querySelector(".fil-ativo").addEventListener("change", recalcular);
       if (i === 0) onFilSelect(div);
+    }
+  }
+
+  function indiceFilamentoPorMaterial(material) {
+    const nome = String(material || "").trim().toLowerCase();
+    if (!nome) return 0;
+    const idx = filamentos.findIndex((f) => String(f.material).trim().toLowerCase() === nome);
+    return idx >= 0 ? idx : 0;
+  }
+
+  function indiceImpressoraPorNome(nome) {
+    const alvo = String(nome || "").trim().toLowerCase();
+    const lista = cfg.IMPRESSORAS || [];
+    const idx = lista.findIndex((imp) => String(imp.nome).trim().toLowerCase() === alvo);
+    return idx >= 0 ? idx : 0;
+  }
+
+  function aplicarFilamentosSlots(lista) {
+    const slots = document.querySelectorAll(".fil-slot");
+    slots.forEach((slot, i) => {
+      const fil = lista[i];
+      const ativo = slot.querySelector(".fil-ativo");
+      if (!fil) {
+        ativo.checked = false;
+        return;
+      }
+      ativo.checked = fil.ativo !== false;
+      slot.querySelector(".fil-select").value = String(indiceFilamentoPorMaterial(fil.material));
+      slot.querySelector(".fil-preco").value = Number(fil.precoFilamentoKg || 0).toFixed(2);
+      slot.querySelector(".fil-qtd").value = fil.quantidade ?? 0;
+      slot.querySelector(".fil-un-qtd").value = fil.unidadeQuantidade || "g";
+      slot.querySelector(".fil-tempo").value = fil.tempo ?? 0;
+      slot.querySelector(".fil-un-tempo").value = fil.unidadeTempo || "h";
+      if (!Number(fil.precoFilamentoKg)) onFilSelect(slot);
+    });
+  }
+
+  function aplicarDetalheProjeto(detalhe) {
+    $("qtdPecas").value = String(detalhe.quantidadePecas || 1);
+    if ($("responsavel-projeto") && detalhe.responsavelProjeto) {
+      $("responsavel-projeto").value = detalhe.responsavelProjeto;
+    }
+    if (detalhe.impressora) {
+      $("impressora").value = String(indiceImpressoraPorNome(detalhe.impressora));
+    }
+    if (detalhe.consumoW) $("consumoW").value = detalhe.consumoW;
+    if (detalhe.valorKwh) $("valorKwh").value = detalhe.valorKwh;
+    if (detalhe.taxaManutencaoHora) $("taxaManutencao").value = detalhe.taxaManutencaoHora;
+    if (detalhe.maoDeObra !== undefined) $("maoDeObra").value = detalhe.maoDeObra;
+    if (detalhe.insumos !== undefined) $("insumos").value = detalhe.insumos;
+    if (detalhe.margem !== undefined) $("margem").value = detalhe.margem;
+    if (detalhe.filamentos && detalhe.filamentos.length) {
+      aplicarFilamentosSlots(detalhe.filamentos);
+    }
+    recalcular();
+  }
+
+  async function preencherSelectReutilizar() {
+    const sel = $("reutilizar-projeto");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Novo projeto em branco —</option>';
+    if (DEMO) return;
+    try {
+      const lista = await window.TNJApi.fetchProjetos();
+      lista.forEach((p) => {
+        const o = document.createElement("option");
+        o.value = `${p.projetoId}|${p.data}`;
+        o.textContent = `${p.projetoId} — ${p.filamento || "sem filamento"} — ${p.data} (qtd ${p.quantidadePecas || 1})`;
+        sel.appendChild(o);
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function aoSelecionarProjetoAnterior() {
+    const sel = $("reutilizar-projeto");
+    const msg = $("reutilizar-msg");
+    if (!sel || !sel.value) {
+      if (msg) msg.textContent = "";
+      return;
+    }
+    const [projetoId, data] = sel.value.split("|");
+    if (msg) {
+      msg.textContent = "Carregando dados do projeto…";
+      msg.className = "save-msg";
+    }
+    try {
+      const detalhe = await window.TNJApi.fetchProjetoDetalhe(projetoId, data);
+      aplicarDetalheProjeto(detalhe);
+      await atualizarProjetoId();
+      if (msg) {
+        msg.textContent = `Dados de ${projetoId} carregados. Ajuste a quantidade e clique em Criar custo.`;
+        msg.className = "save-msg ok";
+      }
+    } catch (e) {
+      if (msg) {
+        msg.textContent = "Erro ao carregar: " + e.message;
+        msg.className = "save-msg err";
+      }
     }
   }
 
@@ -308,7 +417,10 @@
           : `Custo ${id} gravado na planilha!`;
         $("save-msg").className = "save-msg ok";
         $("qtdPecas").value = "1";
+        $("reutilizar-projeto").value = "";
+        $("reutilizar-msg").textContent = "";
         await atualizarProjetoId();
+        await preencherSelectReutilizar();
       } else {
         $("save-msg").textContent = "Erro: " + (resp?.error || "desconhecido");
         $("save-msg").className = "save-msg err";
@@ -415,6 +527,7 @@
     );
     $("btn-criar").addEventListener("click", criarCusto);
     $("btn-recarregar").addEventListener("click", carregarProjetos);
+    $("reutilizar-projeto")?.addEventListener("change", aoSelecionarProjetoAnterior);
     $("btn-conectar")?.addEventListener("click", conectarApi);
     $("btn-desconectar")?.addEventListener("click", () => {
       localStorage.removeItem(STORAGE_KEY);
@@ -433,6 +546,7 @@
 
     setConn(DEMO ? "demo" : "ok", DEMO ? "modo demonstração" : "conectando…");
     await atualizarProjetoId();
+    await preencherSelectReutilizar();
     try {
       filamentos = await fetchFilamentos();
       document.querySelectorAll(".fil-select").forEach((sel) => optionsFilamentos(sel));

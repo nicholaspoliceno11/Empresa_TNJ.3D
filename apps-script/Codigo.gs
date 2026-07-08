@@ -5,7 +5,7 @@
  *   - Executar como: Eu (você)
  *   - Quem tem acesso: Qualquer pessoa
  *
- * GET (JSONP): filamentos, projetos, proximoId, vendas, saidas, financeiro,
+ * GET (JSONP): filamentos, projetos, projetoDetalhe, proximoId, vendas, saidas, financeiro,
  *              inicializar, gravar (payload JSON)
  */
 
@@ -64,6 +64,11 @@ function rotearAcao(action, e, payload) {
   }
   if (action === "projetos") {
     return { ok: true, projetos: lerProjetos() };
+  }
+  if (action === "projetoDetalhe") {
+    var pid = (e && e.parameter && e.parameter.projetoId) || (payload && payload.projetoId);
+    var dataRef = (e && e.parameter && e.parameter.data) || (payload && payload.data) || "";
+    return { ok: true, detalhe: lerProjetoDetalhe(pid, dataRef) };
   }
   if (action === "proximoId") {
     return { ok: true, projetoId: proximoProjetoId() };
@@ -205,6 +210,174 @@ function lerProjetos() {
     }
   }
   return lista.reverse();
+}
+
+function datasCompativeis(d, ref) {
+  if (!ref) return true;
+  return formatarData(d) === String(ref);
+}
+
+function buscarLinhaProjeto(projetoId, dataRef) {
+  var sheet = obterAba(ABA_PROJETOS, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  var valores = sheet.getDataRange().getValues();
+  var formato = detectarFormatoProjetos(valores[0]);
+  for (var i = valores.length - 1; i >= 1; i--) {
+    var r = valores[i];
+    if (String(r[1]) !== String(projetoId)) continue;
+    if (!datasCompativeis(r[0], dataRef)) continue;
+    return { row: r, formato: formato, data: r[0] };
+  }
+  return null;
+}
+
+function lerFilamentosRegistro(projetoId, dataReg) {
+  var sheet = obterAba(ABA_FILAMENTO_CUSTO, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var valores = sheet.getDataRange().getValues();
+  var comSlot = String(valores[0][3] || "") === "Slot";
+  var lista = [];
+  for (var i = 1; i < valores.length; i++) {
+    var row = valores[i];
+    if (String(row[1]) !== String(projetoId)) continue;
+    if (!datasCompativeis(row[0], dataReg)) continue;
+    if (comSlot) {
+      lista.push({
+        slot: Number(row[3]) || lista.length + 1,
+        material: String(row[4] || ""),
+        precoFilamentoKg: Number(row[5]) || 0,
+        quantidade: Number(row[6]) || 0,
+        unidadeQuantidade: "g",
+        tempo: Number(row[7]) || 0,
+        unidadeTempo: "h",
+        ativo: true,
+      });
+    } else {
+      lista.push({
+        slot: lista.length + 1,
+        material: String(row[3] || ""),
+        precoFilamentoKg: Number(row[4]) || 0,
+        quantidade: Number(row[5]) || 0,
+        unidadeQuantidade: "g",
+        tempo: 0,
+        unidadeTempo: "h",
+        ativo: true,
+      });
+    }
+  }
+  lista.sort(function (a, b) {
+    return a.slot - b.slot;
+  });
+  return lista;
+}
+
+function lerEnergiaRegistro(projetoId, dataReg) {
+  var sheet = obterAba(ABA_ENERGIA, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return {};
+  var valores = sheet.getDataRange().getValues();
+  for (var i = valores.length - 1; i >= 1; i--) {
+    var row = valores[i];
+    if (String(row[1]) !== String(projetoId)) continue;
+    if (!datasCompativeis(row[0], dataReg)) continue;
+    return {
+      impressora: String(row[2] || ""),
+      consumoW: Number(row[3]) || 0,
+      horas: Number(row[4]) || 0,
+      valorKwh: Number(row[5]) || 0,
+    };
+  }
+  return {};
+}
+
+function lerManutencaoRegistro(projetoId, dataReg) {
+  var sheet = obterAba(ABA_MANUTENCAO, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return {};
+  var valores = sheet.getDataRange().getValues();
+  var comTaxa = String(valores[0][2] || "") === "Taxa (R$/h)";
+  for (var i = valores.length - 1; i >= 1; i--) {
+    var row = valores[i];
+    if (String(row[1]) !== String(projetoId)) continue;
+    if (!datasCompativeis(row[0], dataReg)) continue;
+    if (comTaxa) {
+      return { taxa: Number(row[2]) || 0, horas: Number(row[3]) || 0 };
+    }
+    return { taxa: 0, horas: Number(row[2]) || 0 };
+  }
+  return {};
+}
+
+function lerProjetoDetalhe(projetoId, dataRef) {
+  var id = String(projetoId || "").trim();
+  if (!id) throw new Error("ID do projeto obrigatório");
+  var encontrado = buscarLinhaProjeto(id, dataRef || "");
+  if (!encontrado) throw new Error("Projeto não encontrado: " + id);
+
+  var r = encontrado.row;
+  var formato = encontrado.formato;
+  var dataReg = encontrado.data;
+  var qtd = 1;
+  var responsavel = "";
+  var impressora = "";
+  var margem = 0;
+  var maoObraBatch = 0;
+  var insumosBatch = 0;
+
+  if (formato === "comResp") {
+    qtd = Number(r[2]) || 1;
+    responsavel = String(r[3] || "");
+    impressora = String(r[4] || "");
+    maoObraBatch = Number(r[8]) || 0;
+    insumosBatch = Number(r[10]) || 0;
+    margem = Number(r[13]) || 0;
+  } else if (formato === "qtd") {
+    qtd = Number(r[2]) || 1;
+    impressora = String(r[3] || "");
+    maoObraBatch = Number(r[7]) || 0;
+    insumosBatch = Number(r[9]) || 0;
+    margem = Number(r[12]) || 0;
+  } else {
+    maoObraBatch = Number(r[5]) || 0;
+    insumosBatch = Number(r[7]) || 0;
+    margem = Number(r[9]) || 0;
+  }
+
+  var energia = lerEnergiaRegistro(id, dataReg);
+  var manut = lerManutencaoRegistro(id, dataReg);
+  var filamentos = lerFilamentosRegistro(id, dataReg);
+
+  if (!filamentos.length && r[5]) {
+    filamentos.push({
+      slot: 1,
+      material: String(formato === "comResp" || formato === "qtd" ? r[5] : r[2] || ""),
+      precoFilamentoKg: 0,
+      quantidade: 0,
+      unidadeQuantidade: "g",
+      tempo: energia.horas || manut.horas || 0,
+      unidadeTempo: "h",
+      ativo: true,
+    });
+  }
+
+  filamentos.forEach(function (f) {
+    if (!f.tempo && (energia.horas || manut.horas)) {
+      f.tempo = energia.horas || manut.horas;
+    }
+  });
+
+  return {
+    projetoIdOrigem: id,
+    dataRegistro: formatarData(dataReg),
+    quantidadePecas: qtd,
+    responsavelProjeto: responsavel,
+    impressora: energia.impressora || impressora,
+    consumoW: energia.consumoW || 0,
+    valorKwh: energia.valorKwh || 0,
+    taxaManutencaoHora: manut.taxa || 0,
+    maoDeObra: round2(maoObraBatch / qtd),
+    insumos: round2(insumosBatch / qtd),
+    margem: margem,
+    filamentos: filamentos,
+  };
 }
 
 function lerVendas() {

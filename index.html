@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=10" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=11" />
   </head>
   <body>
     <header class="topbar">
@@ -68,12 +68,18 @@
 
             <fieldset>
               <legend>Projeto</legend>
+              <label for="reutilizar-projeto">Reutilizar projeto anterior</label>
+              <select id="reutilizar-projeto">
+                <option value="">— Novo projeto em branco —</option>
+              </select>
+              <p class="muted field-hint">Carrega filamento, energia e demais dados. O ID abaixo será sempre novo.</p>
               <div class="row">
-                <div><label for="projetoId">ID</label><input id="projetoId" type="text" readonly /></div>
+                <div><label for="projetoId">ID (novo)</label><input id="projetoId" type="text" readonly /></div>
                 <div><label for="qtdPecas">Qtd peças</label><input id="qtdPecas" type="number" min="1" value="1" /></div>
               </div>
               <label for="responsavel-projeto">Responsável pelo projeto</label>
               <select id="responsavel-projeto"></select>
+              <p id="reutilizar-msg" class="save-msg"></p>
             </fieldset>
 
             <div class="actions">
@@ -212,9 +218,9 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=10"></script>
-    <script src="assets/js/config.js?v=10"></script>
-    <script src="assets/js/app.js?v=10"></script>
-    <script src="assets/js/vendas.js?v=10"></script>
+    <script src="assets/js/calc.js?v=11"></script>
+    <script src="assets/js/config.js?v=11"></script>
+    <script src="assets/js/app.js?v=11"></script>
+    <script src="assets/js/vendas.js?v=11"></script>
   </body>
 </html>
