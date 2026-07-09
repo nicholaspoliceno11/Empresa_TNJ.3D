@@ -168,33 +168,101 @@ function detectarFormatoFilCusto(cab) {
   return "antigo";
 }
 
-function indiceColunaNomeObjeto(cab) {
+function indiceColuna(cab, nome) {
   if (!cab) return -1;
   for (var i = 0; i < cab.length; i++) {
-    if (String(cab[i]) === "Nome Objeto") return i;
+    if (String(cab[i]).trim() === nome) return i;
   }
   return -1;
 }
 
+function indiceColunaNomeObjeto(cab) {
+  return indiceColuna(cab, "Nome Objeto");
+}
+
+function valorColuna(r, cab, nome, fallbackIdx) {
+  var idx = indiceColuna(cab, nome);
+  if (idx < 0) idx = fallbackIdx;
+  if (idx < 0 || idx >= r.length) return "";
+  return r[idx];
+}
+
 function lerNomeObjetoRow(r, cab) {
-  var idx = indiceColunaNomeObjeto(cab);
-  return idx >= 0 ? String(r[idx] || "").trim() : "";
+  return String(valorColuna(r, cab, "Nome Objeto", -1) || "").trim();
 }
 
 function ensureColunaNomeObjeto(sheet) {
   var cab = lerCabecalho(sheet);
   var idx = indiceColunaNomeObjeto(cab);
   if (idx >= 0) return idx;
+  var idxLucro = indiceColuna(cab, "Lucro Estimado");
+  if (idxLucro >= 0) {
+    sheet.insertColumnAfter(idxLucro + 1);
+    var colNova = idxLucro + 2;
+    sheet.getRange(1, colNova).setValue("Nome Objeto").setFontWeight("bold");
+    return colNova - 1;
+  }
   var col = Math.max(1, cab.length + 1);
   sheet.getRange(1, col).setValue("Nome Objeto").setFontWeight("bold");
   return col - 1;
 }
 
-function aplicarNomeObjetoNaLinha(row, idxNome, nome) {
-  if (idxNome < 0) return row;
-  while (row.length <= idxNome) row.push("");
-  row[idxNome] = String(nome || "");
+function dadosProjetoParaGravar(agora, p, c, qtd) {
+  return {
+    "Data": agora,
+    "ID": p.projetoId,
+    "Qtd Peças": qtd,
+    "Responsável": String(p.responsavelProjeto || ""),
+    "Impressora": String(p.impressora || ""),
+    "Filamento": p.filamento,
+    "Custo Filamento": num(c.filamento),
+    "Custo Energia": num(c.energia),
+    "Mão de Obra": num(c.maoDeObra),
+    "Custos Fixos": num(c.custosFixos),
+    "Insumos": num(c.insumos),
+    "Custo Total": num(p.custoTotal),
+    "Custo Unitário": num(p.custoTotalUnitario),
+    "Margem %": num(p.margem),
+    "Preço Sugerido": num(p.precoSugerido),
+    "Lucro Estimado": num(p.lucroEstimado),
+    "Nome Objeto": String(p.nomeObjeto || ""),
+  };
+}
+
+function montarLinhaPorCabecalho(cab, dados) {
+  var row = [];
+  for (var i = 0; i < cab.length; i++) {
+    var h = String(cab[i]).trim();
+    row.push(dados.hasOwnProperty(h) ? dados[h] : "");
+  }
   return row;
+}
+
+function lerProjetoComRespRow(r, cab) {
+  var qtd = Number(valorColuna(r, cab, "Qtd Peças", 2)) || 1;
+  var custoTot = Number(valorColuna(r, cab, "Custo Total", 11)) || 0;
+  var custoUnit = Number(valorColuna(r, cab, "Custo Unitário", 12)) || round2(custoTot / qtd);
+  var margem = Number(valorColuna(r, cab, "Margem %", 13)) || 0;
+  var precoStored = Number(valorColuna(r, cab, "Preço Sugerido", 14)) || 0;
+  return {
+    data: formatarData(r[0]),
+    projetoId: String(r[1]),
+    quantidadePecas: qtd,
+    responsavelProjeto: String(valorColuna(r, cab, "Responsável", 3) || ""),
+    impressora: String(valorColuna(r, cab, "Impressora", 4) || ""),
+    filamento: String(valorColuna(r, cab, "Filamento", 5) || ""),
+    custoFilamento: Number(valorColuna(r, cab, "Custo Filamento", 6)) || 0,
+    custoEnergia: Number(valorColuna(r, cab, "Custo Energia", 7)) || 0,
+    maoDeObra: Number(valorColuna(r, cab, "Mão de Obra", 8)) || 0,
+    custosFixos: Number(valorColuna(r, cab, "Custos Fixos", 9)) || 0,
+    insumos: Number(valorColuna(r, cab, "Insumos", 10)) || 0,
+    custoTotal: custoTot,
+    custoTotalUnitario: custoUnit,
+    margem: margem,
+    precoSugerido: precoStored,
+    precoSugeridoUnit: precoUnitarioFromRow(custoUnit, margem, precoStored, qtd),
+    nomeObjeto: lerNomeObjetoRow(r, cab),
+  };
 }
 
 function buscarNomeObjetoProjeto(projetoId) {
@@ -237,33 +305,10 @@ function lerProjetos() {
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
     if (!r[1]) continue;
-    var nomeObj = lerNomeObjetoRow(r, cab);
     if (formato === "comResp") {
-      var qtdResp = Number(r[2]) || 1;
-      var custoTotResp = Number(r[11]) || 0;
-      var custoUnitResp = Number(r[12]) || round2(custoTotResp / qtdResp);
-      var margemResp = Number(r[13]) || 0;
-      var precoStoredResp = Number(r[14]) || 0;
-      lista.push({
-        data: formatarData(r[0]),
-        projetoId: String(r[1]),
-        quantidadePecas: qtdResp,
-        responsavelProjeto: String(r[3] || ""),
-        impressora: String(r[4] || ""),
-        filamento: String(r[5] || ""),
-        custoFilamento: Number(r[6]) || 0,
-        custoEnergia: Number(r[7]) || 0,
-        maoDeObra: Number(r[8]) || 0,
-        custosFixos: Number(r[9]) || 0,
-        insumos: Number(r[10]) || 0,
-        custoTotal: custoTotResp,
-        custoTotalUnitario: custoUnitResp,
-        margem: margemResp,
-        precoSugerido: precoStoredResp,
-        precoSugeridoUnit: precoUnitarioFromRow(custoUnitResp, margemResp, precoStoredResp, qtdResp),
-        nomeObjeto: nomeObj,
-      });
+      lista.push(lerProjetoComRespRow(r, cab));
     } else if (formato === "qtd") {
+      var nomeObjQtd = lerNomeObjetoRow(r, cab);
       var qtdQ = Number(r[2]) || 1;
       var custoTotQ = Number(r[10]) || 0;
       var custoUnitQ = Number(r[11]) || round2(custoTotQ / qtdQ);
@@ -286,9 +331,10 @@ function lerProjetos() {
         margem: margemQ,
         precoSugerido: precoStoredQ,
         precoSugeridoUnit: precoUnitarioFromRow(custoUnitQ, margemQ, precoStoredQ, qtdQ),
-        nomeObjeto: nomeObj,
+        nomeObjeto: nomeObjQtd,
       });
     } else {
+      var nomeObjAnt = lerNomeObjetoRow(r, cab);
       lista.push({
         data: formatarData(r[0]),
         projetoId: String(r[1]),
@@ -304,7 +350,7 @@ function lerProjetos() {
         custoTotal: Number(r[8]) || 0,
         margem: Number(r[9]) || 0,
         precoSugerido: Number(r[10]) || 0,
-        nomeObjeto: nomeObj,
+        nomeObjeto: nomeObjAnt,
       });
     }
   }
@@ -451,17 +497,17 @@ function lerProjetoDetalhe(projetoId, dataRef) {
   var precoSugerido = 0;
 
   if (formato === "comResp") {
-    qtd = Number(r[2]) || 1;
-    responsavel = String(r[3] || "");
-    impressora = String(r[4] || "");
-    filamentoNome = String(r[5] || "");
-    custoFilamento = Number(r[6]) || 0;
-    custoEnergia = Number(r[7]) || 0;
-    maoObraBatch = Number(r[8]) || 0;
-    custosFixos = Number(r[9]) || 0;
-    insumosBatch = Number(r[10]) || 0;
-    margem = Number(r[13]) || 0;
-    precoSugerido = Number(r[14]) || 0;
+    qtd = Number(valorColuna(r, cab, "Qtd Peças", 2)) || 1;
+    responsavel = String(valorColuna(r, cab, "Responsável", 3) || "");
+    impressora = String(valorColuna(r, cab, "Impressora", 4) || "");
+    filamentoNome = String(valorColuna(r, cab, "Filamento", 5) || "");
+    custoFilamento = Number(valorColuna(r, cab, "Custo Filamento", 6)) || 0;
+    custoEnergia = Number(valorColuna(r, cab, "Custo Energia", 7)) || 0;
+    maoObraBatch = Number(valorColuna(r, cab, "Mão de Obra", 8)) || 0;
+    custosFixos = Number(valorColuna(r, cab, "Custos Fixos", 9)) || 0;
+    insumosBatch = Number(valorColuna(r, cab, "Insumos", 10)) || 0;
+    margem = Number(valorColuna(r, cab, "Margem %", 13)) || 0;
+    precoSugerido = Number(valorColuna(r, cab, "Preço Sugerido", 14)) || 0;
   } else if (formato === "qtd") {
     qtd = Number(r[2]) || 1;
     impressora = String(r[3] || "");
@@ -773,35 +819,19 @@ function gravarCusto(p) {
 }
 
 function gravarLinhaProjeto(sheet, agora, p, c, qtd) {
-  var formato = detectarFormatoProjetos(lerCabecalho(sheet));
-  var idxNome = ensureColunaNomeObjeto(sheet);
-  var nome = String(p.nomeObjeto || "");
-  if (formato === "comResp") {
-    var rowResp = [
-      agora, p.projetoId, qtd, String(p.responsavelProjeto || ""), String(p.impressora || ""),
-      p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
-      num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
-      num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
-    ];
-    sheet.appendRow(aplicarNomeObjetoNaLinha(rowResp, idxNome, nome));
+  ensureColunaNomeObjeto(sheet);
+  var cab = lerCabecalho(sheet);
+  var formato = detectarFormatoProjetos(cab);
+  var dados = dadosProjetoParaGravar(agora, p, c, qtd);
+  if (formato === "comResp" || formato === "qtd") {
+    sheet.appendRow(montarLinhaPorCabecalho(cab, dados));
     return;
   }
-  if (formato === "qtd") {
-    var rowQtd = [
-      agora, p.projetoId, qtd, String(p.impressora || ""),
-      p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
-      num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
-      num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
-    ];
-    sheet.appendRow(aplicarNomeObjetoNaLinha(rowQtd, idxNome, nome));
-    return;
-  }
-  var rowAnt = [
+  sheet.appendRow([
     agora, p.projetoId, p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
     num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.margem),
     num(p.precoSugerido), num(p.lucroEstimado),
-  ];
-  sheet.appendRow(aplicarNomeObjetoNaLinha(rowAnt, idxNome, nome));
+  ]);
 }
 
 function gravarLinhasFilamento(sheet, agora, projetoId, qtd, fils) {
