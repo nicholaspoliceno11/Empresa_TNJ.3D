@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=18" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=20" />
   </head>
   <body>
     <header class="topbar">
@@ -147,13 +147,10 @@
         <div class="grid-vendas">
           <div class="card">
             <h2>Registrar venda</h2>
-            <label for="venda-projeto">Projeto</label>
-            <select id="venda-projeto"></select>
-            <label for="venda-valor">Valor por peça (R$)</label>
-            <input id="venda-valor" type="number" step="0.01" min="0" />
-            <label for="venda-qtd">Quantidade vendida</label>
-            <input id="venda-qtd" type="number" min="1" value="1" />
-            <label for="venda-desconto">Desconto (R$)</label>
+            <p class="muted field-hint">Adicione um ou mais projetos na mesma venda.</p>
+            <div id="venda-itens"></div>
+            <button type="button" id="btn-add-venda-item" class="btn btn-add-item">+ Adicionar projeto</button>
+            <label for="venda-desconto">Desconto total (R$)</label>
             <input id="venda-desconto" type="number" step="0.01" min="0" value="0" />
             <p id="venda-total-preview" class="muted field-hint">Total da venda: R$ 0,00</p>
             <label for="venda-pagamento">Forma de pagamento</label>
@@ -166,17 +163,38 @@
             <p id="venda-msg" class="save-msg"></p>
 
             <hr class="divider" />
-            <h3>Saída fixa</h3>
+            <h3>Pagamentos</h3>
+            <label for="saida-tipo">Tipo</label>
+            <select id="saida-tipo">
+              <option value="Fixo">Fixo da empresa</option>
+              <option value="Produto">Pagamento de produto</option>
+            </select>
             <label for="saida-desc">Descrição</label>
-            <input id="saida-desc" type="text" placeholder="Ex.: Aluguel, energia fixa…" />
+            <input id="saida-desc" type="text" placeholder="Ex.: Aluguel, filamento PLA…" />
             <label for="saida-valor">Valor (R$)</label>
             <input id="saida-valor" type="number" step="0.01" min="0" />
-            <button id="btn-registrar-saida" class="btn">Registrar saída</button>
+            <label for="saida-pagamento">Forma de pagamento</label>
+            <select id="saida-pagamento"></select>
+            <button id="btn-registrar-saida" class="btn">Registrar pagamento</button>
             <p id="saida-msg" class="save-msg"></p>
           </div>
 
           <div class="card">
-            <h2>Financeiro</h2>
+            <div class="card-head card-head-tight">
+              <h2>Financeiro</h2>
+              <button type="button" id="btn-toggle-caixa" class="btn-eye" title="Mostrar/ocultar caixa" aria-label="Mostrar caixa">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div id="caixa-panel" class="caixa-panel" hidden>
+              <label for="caixa-saldo">Saldo em dinheiro (R$)</label>
+              <div class="caixa-row">
+                <input id="caixa-saldo" type="number" step="0.01" min="0" />
+                <button type="button" id="btn-salvar-caixa" class="btn">Salvar</button>
+              </div>
+              <p class="muted field-hint">Vendas em dinheiro (CASH) somam; pagamentos em dinheiro subtraem.</p>
+              <p id="caixa-msg" class="save-msg"></p>
+            </div>
             <div id="resumo-financeiro" class="fin-grid"></div>
             <canvas id="chart-financeiro" height="220"></canvas>
             <button id="btn-recarregar-vendas" class="btn">Atualizar</button>
@@ -188,12 +206,14 @@
           <p class="muted" id="vendas-info"></p>
           <div class="table-wrap">
             <table class="projetos">
-              <thead><tr><th>Data</th><th>Projeto</th><th>Valor</th><th>Desconto</th><th>Pagamento</th><th>Vendedor</th><th>Resp. Projeto</th><th>Obs</th><th>Lucro</th></tr></thead>
+              <thead><tr><th>Data</th><th>ID Venda</th><th>Projeto</th><th>Valor</th><th>Desconto</th><th>Pagamento</th><th>Vendedor</th><th>Resp. Projeto</th><th>Obs</th><th>Lucro</th></tr></thead>
               <tbody id="vendas-body"></tbody>
             </table>
           </div>
-          <h3 style="margin-top:20px">Saídas fixas</h3>
-          <table class="projetos"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr></thead><tbody id="saidas-body"></tbody></table>
+          <h3 style="margin-top:20px">Pagamentos fixos (empresa)</h3>
+          <table class="projetos"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Pagamento</th></tr></thead><tbody id="saidas-fixas-body"></tbody></table>
+          <h3 style="margin-top:20px">Pagamentos de produtos</h3>
+          <table class="projetos"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th><th>Pagamento</th></tr></thead><tbody id="saidas-produtos-body"></tbody></table>
         </div>
       </section>
 
@@ -258,10 +278,10 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=18"></script>
-    <script src="assets/js/config.js?v=18"></script>
-    <script src="assets/js/app.js?v=18"></script>
-    <script src="assets/js/vendas.js?v=18"></script>
-    <script src="assets/js/estoque.js?v=18"></script>
+    <script src="assets/js/calc.js?v=20"></script>
+    <script src="assets/js/config.js?v=20"></script>
+    <script src="assets/js/app.js?v=20"></script>
+    <script src="assets/js/vendas.js?v=20"></script>
+    <script src="assets/js/estoque.js?v=20"></script>
   </body>
 </html>

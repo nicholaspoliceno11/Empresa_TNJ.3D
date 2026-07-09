@@ -514,6 +514,80 @@ table {
   color: var(--green);
 }
 
+.card-head-tight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-head-tight h2 {
+  margin: 0;
+}
+.btn-eye {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-eye:hover,
+.btn-eye.active {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.caixa-panel {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.caixa-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.caixa-row input {
+  flex: 1;
+}
+.btn-add-item {
+  margin: 8px 0 16px;
+  width: 100%;
+}
+.venda-item {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.venda-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.venda-item-head strong {
+  font-size: 13px;
+  color: var(--muted);
+}
+.btn-remover-item {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.venda-item .row {
+  margin-top: 8px;
+}
+
 textarea {
   width: 100%;
   background: #0f1420;

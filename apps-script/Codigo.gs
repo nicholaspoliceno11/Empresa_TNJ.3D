@@ -6,7 +6,7 @@
  *   - Quem tem acesso: Qualquer pessoa
  *
  * GET (JSONP): filamentos, projetos, projetoDetalhe, proximoId, proximoIdReutilizacao,
- *              vendas, saidas, financeiro, estoque, inicializar, gravar (payload JSON)
+ *              vendas, saidas, financeiro, caixa, estoque, inicializar, gravar (payload JSON)
  */
 
 var ABA_FILAMENTOS = "Filamentos";
@@ -19,7 +19,9 @@ var ABA_INSUMOS = "Insumos";
 var ABA_VENDAS = "Vendas";
 var ABA_SAIDAS = "Saídas Fixas";
 var ABA_ESTOQUE = "Estoque";
+var ABA_CAIXA = "Caixa";
 var PREFIXO_PROJETO = "PRJ";
+var PREFIXO_VENDA = "VND";
 
 var CABECALHO_PROJETOS = [
   "Data", "ID", "Qtd Peças", "Responsável", "Impressora", "Filamento",
@@ -34,10 +36,12 @@ var CABECALHO_FIL_CUSTO = [
 
 var CABECALHO_VENDAS = [
   "Data", "ID Projeto", "Valor Venda", "Forma Pagamento", "Responsável Venda",
-  "Responsável Projeto", "Observações", "Custo Total", "Lucro", "Qtd Vendida", "Desconto",
+  "Responsável Projeto", "Observações", "Custo Total", "Lucro", "Qtd Vendida", "Desconto", "ID Venda",
 ];
 
-var CABECALHO_SAIDAS = ["Data", "Descrição", "Valor"];
+var CABECALHO_SAIDAS = ["Data", "Descrição", "Valor", "Tipo", "Pagamento"];
+
+var CABECALHO_CAIXA = ["Saldo (R$)", "Última atualização"];
 
 var CABECALHO_ESTOQUE = [
   "ID Raiz", "Filamento", "Qtd Estoque", "Preço Ref. (R$)", "Última Atualização",
@@ -92,6 +96,9 @@ function rotearAcao(action, e, payload) {
   if (action === "financeiro") {
     return { ok: true, resumo: calcularFinanceiro() };
   }
+  if (action === "caixa") {
+    return { ok: true, caixa: lerCaixa() };
+  }
   if (action === "estoque") {
     return { ok: true, estoque: lerEstoque() };
   }
@@ -124,6 +131,9 @@ function processarGravar(dados) {
   }
   if (acao === "adicionarFilamento") {
     return { ok: true, resultado: adicionarFilamento(dados) };
+  }
+  if (acao === "definirSaldoCaixa") {
+    return { ok: true, resultado: definirSaldoCaixa(dados.saldo) };
   }
   return { ok: true, resultado: gravarCusto(dados) };
 }
@@ -168,12 +178,16 @@ function detectarFormatoFilCusto(cab) {
   return "antigo";
 }
 
-function indiceColunaNomeObjeto(cab) {
+function indiceColuna(cab, nome) {
   if (!cab) return -1;
   for (var i = 0; i < cab.length; i++) {
-    if (String(cab[i]) === "Nome Objeto") return i;
+    if (String(cab[i]).trim() === nome) return i;
   }
   return -1;
+}
+
+function indiceColunaNomeObjeto(cab) {
+  return indiceColuna(cab, "Nome Objeto");
 }
 
 function lerNomeObjetoRow(r, cab) {
@@ -538,7 +552,9 @@ function lerVendas() {
   if (!sheet || sheet.getLastRow() < 2) return [];
   var valores = sheet.getDataRange().getValues();
   var cab = valores[0] || [];
-  var comDesconto = String(cab[10] || "") === "Desconto";
+  var idxDesconto = indiceColuna(cab, "Desconto");
+  var idxQtd = indiceColuna(cab, "Qtd Vendida");
+  var idxVendaId = indiceColuna(cab, "ID Venda");
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
@@ -553,8 +569,9 @@ function lerVendas() {
       observacoes: String(r[6] || ""),
       custoTotal: Number(r[7]) || 0,
       lucro: Number(r[8]) || 0,
-      quantidadeVenda: Number(r[9]) || 1,
-      desconto: comDesconto ? Number(r[10]) || 0 : 0,
+      quantidadeVenda: idxQtd >= 0 ? Number(r[idxQtd]) || 1 : 1,
+      desconto: idxDesconto >= 0 ? Number(r[idxDesconto]) || 0 : 0,
+      vendaId: idxVendaId >= 0 ? String(r[idxVendaId] || "") : "",
     });
   }
   return lista.reverse();
@@ -564,6 +581,9 @@ function lerSaidas() {
   var sheet = obterAba(ABA_SAIDAS, null, false);
   if (!sheet || sheet.getLastRow() < 2) return [];
   var valores = sheet.getDataRange().getValues();
+  var cab = valores[0] || [];
+  var idxTipo = indiceColuna(cab, "Tipo");
+  var idxPag = indiceColuna(cab, "Pagamento");
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
@@ -572,9 +592,69 @@ function lerSaidas() {
       data: formatarData(r[0]),
       descricao: String(r[1]),
       valor: Number(r[2]) || 0,
+      tipo: idxTipo >= 0 ? String(r[idxTipo] || "Fixo") : "Fixo",
+      pagamento: idxPag >= 0 ? String(r[idxPag] || "") : "",
     });
   }
   return lista.reverse();
+}
+
+function ensureColunasVendas(sheet) {
+  var cab = lerCabecalho(sheet);
+  var extras = ["Qtd Vendida", "Desconto", "ID Venda"];
+  extras.forEach(function (nome) {
+    if (indiceColuna(cab, nome) >= 0) return;
+    var col = cab.length + 1;
+    sheet.getRange(1, col).setValue(nome).setFontWeight("bold");
+    cab.push(nome);
+  });
+}
+
+function ensureColunasSaidas(sheet) {
+  var cab = lerCabecalho(sheet);
+  [["Tipo", "Fixo"], ["Pagamento", ""]].forEach(function (par) {
+    if (indiceColuna(cab, par[0]) >= 0) return;
+    var col = cab.length + 1;
+    sheet.getRange(1, col).setValue(par[0]).setFontWeight("bold");
+    cab.push(par[0]);
+  });
+}
+
+function ensureCaixaSheet() {
+  var sheet = ensureSheet(ABA_CAIXA, CABECALHO_CAIXA);
+  if (sheet.getLastRow() < 2) {
+    sheet.appendRow([0, new Date()]);
+  }
+  return sheet;
+}
+
+function lerSaldoCaixa() {
+  var sheet = obterAba(ABA_CAIXA, null, false);
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  return Number(sheet.getRange(2, 1).getValue()) || 0;
+}
+
+function definirSaldoCaixa(valor) {
+  var sheet = ensureCaixaSheet();
+  var saldo = round2(num(valor));
+  sheet.getRange(2, 1).setValue(saldo);
+  sheet.getRange(2, 2).setValue(new Date());
+  return { saldo: saldo };
+}
+
+function ajustarSaldoCaixa(delta) {
+  return definirSaldoCaixa(lerSaldoCaixa() + num(delta));
+}
+
+function lerCaixa() {
+  return {
+    saldo: round2(lerSaldoCaixa()),
+    atualizado: formatarData(ensureCaixaSheet().getRange(2, 2).getValue()),
+  };
+}
+
+function pagamentoEhDinheiro(forma) {
+  return String(forma || "").toUpperCase() === "CASH";
 }
 
 function lerEstoque() {
@@ -647,6 +727,8 @@ function calcularFinanceiro() {
   var custos = 0;
   var lucroVendas = 0;
   var maoDeObra = 0;
+  var saidasFixas = 0;
+  var saidasProdutos = 0;
 
   vendas.forEach(function (v) {
     entradas += v.valorVenda;
@@ -656,17 +738,25 @@ function calcularFinanceiro() {
     if (proj) maoDeObra += proj.maoDeObra;
   });
 
-  var totalSaidas = 0;
   saidas.forEach(function (s) {
-    totalSaidas += s.valor;
+    if (String(s.tipo) === "Produto") {
+      saidasProdutos += s.valor;
+    } else {
+      saidasFixas += s.valor;
+    }
   });
+
+  var totalSaidas = saidasFixas + saidasProdutos;
 
   return {
     entradas: round2(entradas),
     saidas: round2(totalSaidas),
+    saidasFixas: round2(saidasFixas),
+    saidasProdutos: round2(saidasProdutos),
     custos: round2(custos),
     lucro: round2(lucroVendas - totalSaidas),
     maoDeObra: round2(maoDeObra),
+    caixa: round2(lerSaldoCaixa()),
   };
 }
 
@@ -833,12 +923,84 @@ function gravarLinhasFilamento(sheet, agora, projetoId, qtd, fils) {
   });
 }
 
+function proximoIdVenda() {
+  var hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd");
+  var sheet = obterAba(ABA_VENDAS, null, false);
+  var prefixo = PREFIXO_VENDA + "-" + hoje + "-";
+  var seq = 1;
+  if (sheet && sheet.getLastRow() > 1) {
+    var cab = lerCabecalho(sheet);
+    var idxVendaId = indiceColuna(cab, "ID Venda");
+    var valores = sheet.getDataRange().getValues();
+    for (var i = 1; i < valores.length; i++) {
+      var id = idxVendaId >= 0 ? String(valores[i][idxVendaId] || "") : "";
+      if (id.indexOf(prefixo) === 0) {
+        var n = parseInt(id.replace(prefixo, ""), 10);
+        if (!isNaN(n) && n >= seq) seq = n + 1;
+      }
+    }
+  }
+  return prefixo + String(seq).padStart(3, "0");
+}
+
 function gravarVenda(p) {
+  if (p.itens && p.itens.length) {
+    return gravarVendaMultipla(p);
+  }
+  var vendaId = p.vendaId || proximoIdVenda();
+  var item = gravarVendaItem(p, vendaId, num(p.desconto));
+  if (pagamentoEhDinheiro(p.formaPagamento)) {
+    ajustarSaldoCaixa(item.valorVenda);
+  }
+  return { vendaId: vendaId, itens: [item] };
+}
+
+function gravarVendaMultipla(p) {
+  var vendaId = proximoIdVenda();
+  var forma = String(p.formaPagamento || "");
+  var descontoTotal = Math.max(0, num(p.desconto));
+  var itensPayload = p.itens || [];
+  var brutoTotal = 0;
+  itensPayload.forEach(function (item) {
+    var qtd = Math.max(1, Math.floor(num(item.quantidadeVenda) || 1));
+    var precoUnit = num(item.valorUnitario) || num(item.valorVenda);
+    brutoTotal += precoUnit * qtd;
+  });
+  var liquidoTotal = Math.max(0, brutoTotal - descontoTotal);
+  var fator = brutoTotal > 0 ? liquidoTotal / brutoTotal : 1;
+  var resultados = [];
+  var totalCash = 0;
+  itensPayload.forEach(function (item, idx) {
+    var qtd = Math.max(1, Math.floor(num(item.quantidadeVenda) || 1));
+    var precoUnit = num(item.valorUnitario) || 0;
+    var bruto = precoUnit * qtd;
+    var valorItem = round2(bruto * fator);
+    var descontoItem = idx === 0 ? descontoTotal : 0;
+    var r = gravarVendaItem({
+      projetoId: item.projetoId,
+      valorVenda: valorItem,
+      quantidadeVenda: qtd,
+      formaPagamento: forma,
+      responsavelVenda: p.responsavelVenda,
+      observacoes: p.observacoes,
+      custoTotal: num(item.custoTotal),
+      responsavelProjeto: item.responsavelProjeto,
+    }, vendaId, descontoItem);
+    resultados.push(r);
+    totalCash += valorItem;
+  });
+  if (pagamentoEhDinheiro(forma) && totalCash > 0) {
+    ajustarSaldoCaixa(totalCash);
+  }
+  return { vendaId: vendaId, itens: resultados };
+}
+
+function gravarVendaItem(p, vendaId, descontoLinha) {
   var agora = new Date();
   var valorVenda = num(p.valorVenda);
   var custoTotal = num(p.custoTotal);
   var qtdVenda = Math.max(1, Math.floor(num(p.quantidadeVenda) || 1));
-  var desconto = Math.max(0, num(p.desconto));
+  var desconto = Math.max(0, num(descontoLinha));
   var lucro = round2(valorVenda - custoTotal);
   var proj = buscarProjeto(p.projetoId);
   var respProj = p.responsavelProjeto || (proj ? proj.responsavelProjeto : "");
@@ -850,38 +1012,62 @@ function gravarVenda(p) {
   }
 
   var sheetVendas = ensureSheet(ABA_VENDAS, CABECALHO_VENDAS);
+  ensureColunasVendas(sheetVendas);
   var cabV = lerCabecalho(sheetVendas);
-  var comQtd = String(cabV[9] || "") === "Qtd Vendida";
-  var comDesconto = String(cabV[10] || "") === "Desconto";
-  if (comQtd && comDesconto) {
-    sheetVendas.appendRow([
-      agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
-      String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
-      custoTotal, lucro, qtdVenda, desconto,
-    ]);
-  } else if (comQtd) {
-    sheetVendas.appendRow([
-      agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
-      String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
-      custoTotal, lucro, qtdVenda,
-    ]);
-  } else {
-    sheetVendas.appendRow([
-      agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
-      String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
-      custoTotal, lucro,
-    ]);
-  }
+  var dados = {
+    "Data": agora,
+    "ID Projeto": p.projetoId,
+    "Valor Venda": valorVenda,
+    "Forma Pagamento": String(p.formaPagamento || ""),
+    "Responsável Venda": String(p.responsavelVenda || ""),
+    "Responsável Projeto": String(respProj),
+    "Observações": String(p.observacoes || ""),
+    "Custo Total": custoTotal,
+    "Lucro": lucro,
+    "Qtd Vendida": qtdVenda,
+    "Desconto": desconto,
+    "ID Venda": String(vendaId || ""),
+  };
+  sheetVendas.appendRow(montarLinhaPorCabecalho(cabV, dados));
 
-  return { projetoId: p.projetoId, lucro: lucro, qtdEstoque: estoque.qtdEstoque };
+  return {
+    projetoId: p.projetoId,
+    valorVenda: valorVenda,
+    lucro: lucro,
+    qtdEstoque: estoque.qtdEstoque,
+    vendaId: vendaId,
+  };
+}
+
+function montarLinhaPorCabecalho(cab, dados) {
+  var row = [];
+  for (var i = 0; i < cab.length; i++) {
+    var h = String(cab[i]).trim();
+    row.push(dados.hasOwnProperty(h) ? dados[h] : "");
+  }
+  return row;
 }
 
 function gravarSaida(p) {
   var agora = new Date();
-  ensureSheet(ABA_SAIDAS, CABECALHO_SAIDAS).appendRow([
-    agora, String(p.descricao || ""), num(p.valor),
-  ]);
-  return { descricao: p.descricao, valor: num(p.valor) };
+  var valor = num(p.valor);
+  var tipo = String(p.tipo || "Fixo");
+  var pagamento = String(p.pagamento || "");
+  var sheet = ensureSheet(ABA_SAIDAS, CABECALHO_SAIDAS);
+  ensureColunasSaidas(sheet);
+  var cab = lerCabecalho(sheet);
+  var dados = {
+    "Data": agora,
+    "Descrição": String(p.descricao || ""),
+    "Valor": valor,
+    "Tipo": tipo,
+    "Pagamento": pagamento,
+  };
+  sheet.appendRow(montarLinhaPorCabecalho(cab, dados));
+  if (pagamentoEhDinheiro(pagamento)) {
+    ajustarSaldoCaixa(-valor);
+  }
+  return { descricao: p.descricao, valor: valor, tipo: tipo };
 }
 
 function adicionarFilamento(p) {
@@ -907,6 +1093,7 @@ function inicializarAbas() {
     [ABA_VENDAS, CABECALHO_VENDAS],
     [ABA_SAIDAS, CABECALHO_SAIDAS],
     [ABA_ESTOQUE, CABECALHO_ESTOQUE],
+    [ABA_CAIXA, CABECALHO_CAIXA],
   ];
   for (var i = 0; i < abas.length; i++) {
     var sheet = obterAba(abas[i][0], abas[i][1], true);

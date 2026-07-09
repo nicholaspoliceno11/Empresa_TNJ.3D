@@ -322,6 +322,9 @@
     }
     try {
       const lista = await window.TNJApi.fetchProjetos();
+      lista.sort((a, b) =>
+        rotuloProjeto(a).localeCompare(rotuloProjeto(b), "pt-BR", { sensitivity: "base" })
+      );
       lista.forEach((p) => {
         const o = document.createElement("option");
         o.value = `${p.projetoId}|${p.data}`;

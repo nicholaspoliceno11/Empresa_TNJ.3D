@@ -1,4 +1,4 @@
-/* Gestão de vendas, financeiro e cadastro de filamentos — TNJ.3D */
+/* Gestão de vendas, financeiro, caixa e cadastro de filamentos — TNJ.3D */
 (function () {
   "use strict";
 
@@ -9,6 +9,7 @@
 
   let chartVendas = null;
   let cacheProjetos = [];
+  let caixaVisivel = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -36,6 +37,143 @@
     });
   }
 
+  function rotuloProjeto(p) {
+    const nome = String(p.nomeObjeto || "").trim();
+    return nome || p.projetoId;
+  }
+
+  function ordenarProjetos(lista) {
+    return lista.slice().sort((a, b) =>
+      rotuloProjeto(a).localeCompare(rotuloProjeto(b), "pt-BR", { sensitivity: "base" })
+    );
+  }
+
+  function precoUnitarioProjeto(p) {
+    if (p.precoSugeridoUnit > 0) return p.precoSugeridoUnit;
+    const q = Math.max(1, p.quantidadePecas || 1);
+    const cu = p.custoTotalUnitario || (p.custoTotal || 0) / q;
+    if (cu > 0 && p.margem !== undefined) {
+      return Math.round((cu * (1 + (p.margem || 0) / 100) + Number.EPSILON) * 100) / 100;
+    }
+    return (p.precoSugerido || 0) / q;
+  }
+
+  function custoUnitarioProjeto(p) {
+    const q = Math.max(1, p.quantidadePecas || 1);
+    return p.custoTotalUnitario || (p.custoTotal || 0) / q;
+  }
+
+  function optionsHtmlProjetos(selecionado) {
+    let html = '<option value="">— Selecione o projeto —</option>';
+    cacheProjetos.forEach((p) => {
+      const precoUnit = precoUnitarioProjeto(p);
+      const custoUnit = custoUnitarioProjeto(p);
+      const sel = p.projetoId === selecionado ? " selected" : "";
+      const rotulo = `${rotuloProjeto(p)} — ${p.projetoId} (${p.filamento || "sem filamento"})`;
+      html += `<option value="${p.projetoId}"${sel} data-preco="${precoUnit}" data-custo="${custoUnit}">${rotulo} · ${brl(precoUnit)}/peça</option>`;
+    });
+    return html;
+  }
+
+  function criarLinhaVenda(projetoId) {
+    const div = document.createElement("div");
+    div.className = "venda-item";
+    div.innerHTML = `
+      <div class="venda-item-head">
+        <strong>Projeto</strong>
+        <button type="button" class="btn-remover-item" title="Remover projeto">&times;</button>
+      </div>
+      <select class="venda-item-projeto">${optionsHtmlProjetos(projetoId || "")}</select>
+      <div class="row">
+        <div>
+          <label>Valor por peça (R$)</label>
+          <input class="venda-item-valor" type="number" step="0.01" min="0" />
+        </div>
+        <div>
+          <label>Quantidade</label>
+          <input class="venda-item-qtd" type="number" min="1" value="1" />
+        </div>
+      </div>`;
+    const sel = div.querySelector(".venda-item-projeto");
+    sel.addEventListener("change", () => aoSelecionarProjetoLinha(div));
+    div.querySelector(".venda-item-valor")?.addEventListener("input", atualizarPreviewVenda);
+    div.querySelector(".venda-item-qtd")?.addEventListener("input", atualizarPreviewVenda);
+    div.querySelector(".btn-remover-item")?.addEventListener("click", () => {
+      const itens = document.querySelectorAll(".venda-item");
+      if (itens.length <= 1) return;
+      div.remove();
+      atualizarPreviewVenda();
+    });
+    if (projetoId) aoSelecionarProjetoLinha(div);
+    return div;
+  }
+
+  function aoSelecionarProjetoLinha(linha) {
+    const sel = linha.querySelector(".venda-item-projeto");
+    const opt = sel.options[sel.selectedIndex];
+    const valor = linha.querySelector(".venda-item-valor");
+    if (opt && opt.dataset.preco && valor) {
+      valor.value = Number(opt.dataset.preco).toFixed(2);
+    }
+    atualizarPreviewVenda();
+  }
+
+  function linhasVenda() {
+    return Array.from(document.querySelectorAll(".venda-item"));
+  }
+
+  function lerItensVenda() {
+    return linhasVenda()
+      .map((linha) => {
+        const sel = linha.querySelector(".venda-item-projeto");
+        const opt = sel.options[sel.selectedIndex];
+        if (!sel.value) return null;
+        const qtd = Math.max(1, Math.floor(Number(linha.querySelector(".venda-item-qtd")?.value) || 1));
+        const precoUnit = Number(linha.querySelector(".venda-item-valor")?.value) || 0;
+        const custoUnit = Number(opt.dataset.custo) || 0;
+        return {
+          projetoId: sel.value,
+          valorUnitario: precoUnit,
+          quantidadeVenda: qtd,
+          custoTotal: Math.round((custoUnit * qtd + Number.EPSILON) * 100) / 100,
+          bruto: precoUnit * qtd,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function atualizarPreviewVenda() {
+    const itens = lerItensVenda();
+    const desconto = Math.max(0, Number($("venda-desconto")?.value) || 0);
+    const bruto = itens.reduce((s, i) => s + i.bruto, 0);
+    const total = Math.max(0, bruto - desconto);
+    const el = $("venda-total-preview");
+    if (!el) return;
+    const qtdProjetos = itens.length;
+    if (desconto > 0) {
+      el.textContent = `Total: ${brl(total)} (${brl(bruto)} − desconto ${brl(desconto)}) · ${qtdProjetos} projeto(s)`;
+    } else if (qtdProjetos > 1) {
+      el.textContent = `Total da venda: ${brl(total)} · ${qtdProjetos} projetos`;
+    } else if (itens.length === 1 && itens[0].quantidadeVenda > 1) {
+      el.textContent = `Total: ${brl(total)} (${itens[0].quantidadeVenda} × ${brl(itens[0].valorUnitario)})`;
+    } else {
+      el.textContent = `Total da venda: ${brl(total)}`;
+    }
+  }
+
+  function renderItensVenda() {
+    const box = $("venda-itens");
+    if (!box) return;
+    if (!linhasVenda().length) {
+      box.appendChild(criarLinhaVenda());
+    }
+  }
+
+  function adicionarLinhaVenda() {
+    $("venda-itens")?.appendChild(criarLinhaVenda());
+    atualizarPreviewVenda();
+  }
+
   async function fetchVendas() {
     if (api().isDemo()) return [];
     const data = await api().jsonp("vendas");
@@ -45,11 +183,18 @@
 
   async function fetchFinanceiro() {
     if (api().isDemo()) {
-      return { entradas: 0, saidas: 0, custos: 0, lucro: 0, maoDeObra: 0 };
+      return { entradas: 0, saidas: 0, saidasFixas: 0, saidasProdutos: 0, custos: 0, lucro: 0, maoDeObra: 0, caixa: 0 };
     }
     const data = await api().jsonp("financeiro");
     if (!data.ok) throw new Error(data.error || "Falha ao carregar financeiro");
     return data.resumo;
+  }
+
+  async function fetchCaixa() {
+    if (api().isDemo()) return { saldo: 0 };
+    const data = await api().jsonp("caixa");
+    if (!data.ok) throw new Error(data.error || "Falha ao carregar caixa");
+    return data.caixa;
   }
 
   async function fetchSaidas() {
@@ -75,6 +220,14 @@
     return api().gravar({ action: "gravarSaida", ...payload });
   }
 
+  async function salvarSaldoCaixa(saldo) {
+    if (api().isDemo()) {
+      await new Promise((r) => setTimeout(r, 200));
+      return { ok: true, demo: true };
+    }
+    return api().gravar({ action: "definirSaldoCaixa", saldo });
+  }
+
   async function adicionarFilamento(payload) {
     if (api().isDemo()) {
       await new Promise((r) => setTimeout(r, 300));
@@ -83,108 +236,53 @@
     return api().gravar({ action: "adicionarFilamento", ...payload });
   }
 
-  function precoUnitarioProjeto(p) {
-    if (p.precoSugeridoUnit > 0) return p.precoSugeridoUnit;
-    const q = Math.max(1, p.quantidadePecas || 1);
-    const cu = p.custoTotalUnitario || (p.custoTotal || 0) / q;
-    if (cu > 0 && p.margem !== undefined) {
-      return Math.round((cu * (1 + (p.margem || 0) / 100) + Number.EPSILON) * 100) / 100;
-    }
-    return (p.precoSugerido || 0) / q;
-  }
-
-  function custoUnitarioProjeto(p) {
-    const q = Math.max(1, p.quantidadePecas || 1);
-    return p.custoTotalUnitario || (p.custoTotal || 0) / q;
-  }
-
-  function atualizarPreviewVenda() {
-    const precoUnit = Number($("venda-valor").value) || 0;
-    const qtd = Math.max(1, Math.floor(Number($("venda-qtd").value) || 1));
-    const desconto = Math.max(0, Number($("venda-desconto").value) || 0);
-    const bruto = precoUnit * qtd;
-    const total = Math.max(0, bruto - desconto);
-    const el = $("venda-total-preview");
-    if (!el) return;
-    if (desconto > 0) {
-      el.textContent = `Total: ${brl(total)} (${brl(bruto)} − desconto ${brl(desconto)})`;
-    } else if (qtd > 1) {
-      el.textContent = `Total da venda: ${brl(total)} (${qtd} × ${brl(precoUnit)})`;
-    } else {
-      el.textContent = `Total da venda: ${brl(total)}`;
-    }
-  }
-
-  async function preencherSelectProjetos() {
-    const sel = $("venda-projeto");
-    if (!sel) return;
-    try {
-      cacheProjetos = await api().fetchProjetos();
-      sel.innerHTML = '<option value="">— Selecione o projeto —</option>';
-      cacheProjetos.forEach((p) => {
-        const precoUnit = precoUnitarioProjeto(p);
-        const custoUnit = custoUnitarioProjeto(p);
-        const o = document.createElement("option");
-        o.value = p.projetoId;
-        o.textContent = `${p.nomeObjeto ? p.nomeObjeto + " · " : ""}${p.projetoId} — ${p.filamento || ""} (${brl(precoUnit)}/peça)`;
-        o.dataset.preco = precoUnit;
-        o.dataset.custoUnit = custoUnit;
-        o.dataset.nome = p.nomeObjeto || "";
-        sel.appendChild(o);
-      });
-    } catch {
-      sel.innerHTML = '<option value="">Erro ao carregar projetos</option>';
-    }
-  }
-
-  function aoSelecionarProjetoVenda() {
-    const sel = $("venda-projeto");
-    const opt = sel.options[sel.selectedIndex];
-    if (opt && opt.dataset.preco) {
-      $("venda-valor").value = Number(opt.dataset.preco).toFixed(2);
-    }
-    $("venda-desconto").value = "0";
-    atualizarPreviewVenda();
+  async function preencherProjetosCache() {
+    cacheProjetos = ordenarProjetos(await api().fetchProjetos());
+    linhasVenda().forEach((linha) => {
+      const sel = linha.querySelector(".venda-item-projeto");
+      const atual = sel.value;
+      sel.innerHTML = optionsHtmlProjetos(atual);
+    });
   }
 
   async function registrarVenda() {
-    const projetoId = $("venda-projeto").value;
-    if (!projetoId) {
-      $("venda-msg").textContent = "Selecione um projeto.";
+    const itens = lerItensVenda();
+    if (!itens.length) {
+      $("venda-msg").textContent = "Adicione ao menos um projeto.";
       $("venda-msg").className = "save-msg err";
       return;
     }
-    const opt = $("venda-projeto").selectedOptions[0];
-    const qtd = Math.max(1, Math.floor(Number($("venda-qtd").value) || 1));
-    const precoUnit = Number($("venda-valor").value) || 0;
     const desconto = Math.max(0, Number($("venda-desconto").value) || 0);
-    const valorBruto = precoUnit * qtd;
-    const valorFinal = Math.max(0, valorBruto - desconto);
-    const custoUnit = Number(opt.dataset.custoUnit) || 0;
     const payload = {
-      projetoId,
-      valorVenda: Math.round((valorFinal + Number.EPSILON) * 100) / 100,
-      valorBruto: Math.round((valorBruto + Number.EPSILON) * 100) / 100,
+      itens: itens.map((i) => ({
+        projetoId: i.projetoId,
+        valorUnitario: i.valorUnitario,
+        quantidadeVenda: i.quantidadeVenda,
+        custoTotal: i.custoTotal,
+      })),
       desconto,
-      quantidadeVenda: qtd,
       formaPagamento: $("venda-pagamento").value,
       responsavelVenda: $("venda-responsavel").value,
       observacoes: $("venda-obs").value.trim(),
-      custoTotal: Math.round((custoUnit * qtd + Number.EPSILON) * 100) / 100,
     };
     $("btn-registrar-venda").disabled = true;
     $("venda-msg").textContent = "Salvando…";
     try {
       const resp = await gravarVenda(payload);
       if (resp && resp.ok) {
-        $("venda-msg").textContent = resp.demo ? "Venda simulada (demo)." : "Venda registrada!";
+        const vid = resp.resultado?.vendaId || "";
+        $("venda-msg").textContent = resp.demo
+          ? "Venda simulada (demo)."
+          : `Venda registrada!${vid ? " ID: " + vid : ""}`;
         $("venda-msg").className = "save-msg ok";
         $("venda-obs").value = "";
-        $("venda-qtd").value = "1";
         $("venda-desconto").value = "0";
+        $("venda-itens").innerHTML = "";
+        renderItensVenda();
         atualizarPreviewVenda();
         await carregarVendas();
         await atualizarFinanceiro();
+        await carregarCaixa();
         if (window.TNJEstoque) await window.TNJEstoque.carregarEstoque();
       } else {
         $("venda-msg").textContent = "Erro: " + (resp && resp.error ? resp.error : "desconhecido");
@@ -201,24 +299,63 @@
   async function registrarSaida() {
     const desc = $("saida-desc").value.trim();
     const valor = Number($("saida-valor").value) || 0;
+    const tipo = $("saida-tipo").value;
+    const pagamento = $("saida-pagamento").value;
     if (!desc || valor <= 0) {
       $("saida-msg").textContent = "Informe descrição e valor.";
       $("saida-msg").className = "save-msg err";
       return;
     }
     try {
-      const resp = await gravarSaida({ descricao: desc, valor });
+      const resp = await gravarSaida({ descricao: desc, valor, tipo, pagamento });
       if (resp && resp.ok) {
         $("saida-desc").value = "";
         $("saida-valor").value = "";
-        $("saida-msg").textContent = "Saída registrada!";
+        $("saida-msg").textContent = "Pagamento registrado!";
         $("saida-msg").className = "save-msg ok";
         await carregarSaidas();
         await atualizarFinanceiro();
+        await carregarCaixa();
       }
     } catch (e) {
       $("saida-msg").textContent = "Falha: " + e.message;
       $("saida-msg").className = "save-msg err";
+    }
+  }
+
+  async function salvarCaixa() {
+    const saldo = Number($("caixa-saldo").value) || 0;
+    $("btn-salvar-caixa").disabled = true;
+    try {
+      const resp = await salvarSaldoCaixa(saldo);
+      if (resp && resp.ok) {
+        $("caixa-msg").textContent = resp.demo ? "Saldo simulado (demo)." : "Saldo atualizado!";
+        $("caixa-msg").className = "save-msg ok";
+        await atualizarFinanceiro();
+      }
+    } catch (e) {
+      $("caixa-msg").textContent = "Falha: " + e.message;
+      $("caixa-msg").className = "save-msg err";
+    } finally {
+      $("btn-salvar-caixa").disabled = false;
+    }
+  }
+
+  function toggleCaixa() {
+    caixaVisivel = !caixaVisivel;
+    const panel = $("caixa-panel");
+    const btn = $("btn-toggle-caixa");
+    if (panel) panel.hidden = !caixaVisivel;
+    if (btn) btn.classList.toggle("active", caixaVisivel);
+    if (caixaVisivel) carregarCaixa();
+  }
+
+  async function carregarCaixa() {
+    try {
+      const c = await fetchCaixa();
+      if ($("caixa-saldo")) $("caixa-saldo").value = Number(c.saldo || 0).toFixed(2);
+    } catch {
+      /* ignore */
     }
   }
 
@@ -260,6 +397,7 @@
         const tr = document.createElement("tr");
         tr.innerHTML = [
           v.data,
+          v.vendaId || "—",
           v.projetoId,
           brl(v.valorVenda),
           v.desconto > 0 ? brl(v.desconto) : "—",
@@ -273,22 +411,28 @@
           .join("");
         body.appendChild(tr);
       });
-      if (info) info.textContent = lista.length ? `${lista.length} venda(s).` : "Nenhuma venda ainda.";
+      if (info) info.textContent = lista.length ? `${lista.length} linha(s) de venda.` : "Nenhuma venda ainda.";
     } catch (e) {
       if (info) info.textContent = "Erro: " + e.message;
     }
   }
 
   async function carregarSaidas() {
-    const body = $("saidas-body");
-    if (!body) return;
+    const bodyFixas = $("saidas-fixas-body");
+    const bodyProd = $("saidas-produtos-body");
+    if (!bodyFixas || !bodyProd) return;
     try {
       const lista = await fetchSaidas();
-      body.innerHTML = "";
+      bodyFixas.innerHTML = "";
+      bodyProd.innerHTML = "";
       lista.forEach((s) => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${s.data}</td><td>${s.descricao}</td><td>${brl(s.valor)}</td>`;
-        body.appendChild(tr);
+        tr.innerHTML = `<td>${s.data}</td><td>${s.descricao}</td><td>${brl(s.valor)}</td><td>${s.pagamento || "—"}</td>`;
+        if (String(s.tipo) === "Produto") {
+          bodyProd.appendChild(tr);
+        } else {
+          bodyFixas.appendChild(tr);
+        }
       });
     } catch {
       /* ignore */
@@ -299,17 +443,18 @@
     const canvas = $("chart-financeiro");
     if (!canvas || typeof window.Chart === "undefined") return;
     const dados = {
-      labels: ["Entradas", "Saídas fixas", "Custos projetos", "Lucro líquido"],
+      labels: ["Entradas", "Fixos empresa", "Produtos", "Custos", "Lucro"],
       datasets: [
         {
           label: "R$",
           data: [
             resumo.entradas || 0,
-            resumo.saidas || 0,
+            resumo.saidasFixas || 0,
+            resumo.saidasProdutos || 0,
             resumo.custos || 0,
             resumo.lucro || 0,
           ],
-          backgroundColor: ["#22c55e", "#ef4444", "#f59e0b", "#8b5cf6"],
+          backgroundColor: ["#22c55e", "#ef4444", "#f97316", "#f59e0b", "#8b5cf6"],
         },
       ],
     };
@@ -336,9 +481,14 @@
       const r = await fetchFinanceiro();
       const box = $("resumo-financeiro");
       if (box) {
+        const caixaHtml = caixaVisivel
+          ? `<div class="fin-card highlight"><small>Caixa (dinheiro)</small><b>${brl(r.caixa || 0)}</b></div>`
+          : "";
         box.innerHTML = `
+          ${caixaHtml}
           <div class="fin-card"><small>Entradas (vendas)</small><b>${brl(r.entradas)}</b></div>
-          <div class="fin-card"><small>Saídas fixas</small><b>${brl(r.saidas)}</b></div>
+          <div class="fin-card"><small>Fixos empresa</small><b>${brl(r.saidasFixas || 0)}</b></div>
+          <div class="fin-card"><small>Pag. produtos</small><b>${brl(r.saidasProdutos || 0)}</b></div>
           <div class="fin-card"><small>Custos (projetos)</small><b>${brl(r.custos)}</b></div>
           <div class="fin-card highlight"><small>Lucro líquido</small><b>${brl(r.lucro)}</b></div>
           <div class="fin-card"><small>Mão de obra (lucro)</small><b>${brl(r.maoDeObra)}</b></div>`;
@@ -353,24 +503,27 @@
     optsResponsaveis($("venda-responsavel"));
     optsResponsaveis($("responsavel-projeto"));
     optsPagamento($("venda-pagamento"));
+    optsPagamento($("saida-pagamento"));
 
-    $("venda-projeto")?.addEventListener("change", aoSelecionarProjetoVenda);
-    ["venda-valor", "venda-qtd", "venda-desconto"].forEach((id) =>
-      $(id)?.addEventListener("input", atualizarPreviewVenda)
-    );
+    renderItensVenda();
+    $("btn-add-venda-item")?.addEventListener("click", adicionarLinhaVenda);
+    $("venda-desconto")?.addEventListener("input", atualizarPreviewVenda);
     $("btn-registrar-venda")?.addEventListener("click", registrarVenda);
     $("btn-registrar-saida")?.addEventListener("click", registrarSaida);
     $("btn-salvar-filamento")?.addEventListener("click", salvarFilamentoNovo);
+    $("btn-toggle-caixa")?.addEventListener("click", toggleCaixa);
+    $("btn-salvar-caixa")?.addEventListener("click", salvarCaixa);
     $("btn-recarregar-vendas")?.addEventListener("click", async () => {
-      await preencherSelectProjetos();
+      await preencherProjetosCache();
       await carregarVendas();
       await carregarSaidas();
       await atualizarFinanceiro();
+      if (caixaVisivel) await carregarCaixa();
     });
   }
 
   async function onShowVendas() {
-    await preencherSelectProjetos();
+    await preencherProjetosCache();
     await carregarVendas();
     await carregarSaidas();
     await atualizarFinanceiro();
