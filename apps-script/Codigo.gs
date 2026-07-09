@@ -25,6 +25,7 @@ var CABECALHO_PROJETOS = [
   "Data", "ID", "Qtd Peças", "Responsável", "Impressora", "Filamento",
   "Custo Filamento", "Custo Energia", "Mão de Obra", "Custos Fixos", "Insumos",
   "Custo Total", "Custo Unitário", "Margem %", "Preço Sugerido", "Lucro Estimado",
+  "Nome Objeto",
 ];
 
 var CABECALHO_FIL_CUSTO = [
@@ -167,6 +168,47 @@ function detectarFormatoFilCusto(cab) {
   return "antigo";
 }
 
+function indiceColunaNomeObjeto(cab) {
+  if (!cab) return -1;
+  for (var i = 0; i < cab.length; i++) {
+    if (String(cab[i]) === "Nome Objeto") return i;
+  }
+  return -1;
+}
+
+function lerNomeObjetoRow(r, cab) {
+  var idx = indiceColunaNomeObjeto(cab);
+  return idx >= 0 ? String(r[idx] || "").trim() : "";
+}
+
+function ensureColunaNomeObjeto(sheet) {
+  var cab = lerCabecalho(sheet);
+  var idx = indiceColunaNomeObjeto(cab);
+  if (idx >= 0) return idx;
+  var col = Math.max(1, cab.length + 1);
+  sheet.getRange(1, col).setValue("Nome Objeto").setFontWeight("bold");
+  return col - 1;
+}
+
+function aplicarNomeObjetoNaLinha(row, idxNome, nome) {
+  if (idxNome < 0) return row;
+  while (row.length <= idxNome) row.push("");
+  row[idxNome] = String(nome || "");
+  return row;
+}
+
+function buscarNomeObjetoProjeto(projetoId) {
+  var proj = buscarProjeto(projetoId);
+  if (proj && proj.nomeObjeto) return String(proj.nomeObjeto);
+  var raiz = extrairIdRaiz(projetoId);
+  var lista = lerProjetos();
+  for (var i = lista.length - 1; i >= 0; i--) {
+    if (extrairIdRaiz(lista[i].projetoId) !== raiz) continue;
+    if (lista[i].nomeObjeto) return String(lista[i].nomeObjeto);
+  }
+  return "";
+}
+
 function lerCabecalho(sheet) {
   if (!sheet || sheet.getLastRow() === 0) return [];
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -190,10 +232,12 @@ function lerProjetos() {
   var valores = sheet.getDataRange().getValues();
   if (valores.length < 2) return [];
   var formato = detectarFormatoProjetos(valores[0]);
+  var cab = valores[0];
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
     if (!r[1]) continue;
+    var nomeObj = lerNomeObjetoRow(r, cab);
     if (formato === "comResp") {
       var qtdResp = Number(r[2]) || 1;
       var custoTotResp = Number(r[11]) || 0;
@@ -217,6 +261,7 @@ function lerProjetos() {
         margem: margemResp,
         precoSugerido: precoStoredResp,
         precoSugeridoUnit: precoUnitarioFromRow(custoUnitResp, margemResp, precoStoredResp, qtdResp),
+        nomeObjeto: nomeObj,
       });
     } else if (formato === "qtd") {
       var qtdQ = Number(r[2]) || 1;
@@ -241,6 +286,7 @@ function lerProjetos() {
         margem: margemQ,
         precoSugerido: precoStoredQ,
         precoSugeridoUnit: precoUnitarioFromRow(custoUnitQ, margemQ, precoStoredQ, qtdQ),
+        nomeObjeto: nomeObj,
       });
     } else {
       lista.push({
@@ -258,6 +304,7 @@ function lerProjetos() {
         custoTotal: Number(r[8]) || 0,
         margem: Number(r[9]) || 0,
         precoSugerido: Number(r[10]) || 0,
+        nomeObjeto: nomeObj,
       });
     }
   }
@@ -278,7 +325,7 @@ function buscarLinhaProjeto(projetoId, dataRef) {
     var r = valores[i];
     if (String(r[1]) !== String(projetoId)) continue;
     if (!datasCompativeis(r[0], dataRef)) continue;
-    return { row: r, formato: formato, data: r[0] };
+    return { row: r, formato: formato, data: r[0], cab: valores[0] };
   }
   return null;
 }
@@ -389,6 +436,8 @@ function lerProjetoDetalhe(projetoId, dataRef) {
   var r = encontrado.row;
   var formato = encontrado.formato;
   var dataReg = encontrado.data;
+  var cab = encontrado.cab || [];
+  var nomeObjeto = lerNomeObjetoRow(r, cab);
   var qtd = 1;
   var responsavel = "";
   var impressora = "";
@@ -461,6 +510,7 @@ function lerProjetoDetalhe(projetoId, dataRef) {
   return {
     projetoIdOrigem: id,
     dataRegistro: formatarData(dataReg),
+    nomeObjeto: nomeObjeto,
     quantidadePecas: qtd,
     responsavelProjeto: responsavel,
     impressora: energia.impressora || impressora,
@@ -541,6 +591,7 @@ function lerEstoque() {
       qtdEstoque: Number(r[2]) || 0,
       precoRef: Number(r[3]) || 0,
       ultimaAtualizacao: formatarData(r[4]),
+      nomeObjeto: buscarNomeObjetoProjeto(String(r[0])),
     });
   }
   return lista;
@@ -723,29 +774,34 @@ function gravarCusto(p) {
 
 function gravarLinhaProjeto(sheet, agora, p, c, qtd) {
   var formato = detectarFormatoProjetos(lerCabecalho(sheet));
+  var idxNome = ensureColunaNomeObjeto(sheet);
+  var nome = String(p.nomeObjeto || "");
   if (formato === "comResp") {
-    sheet.appendRow([
+    var rowResp = [
       agora, p.projetoId, qtd, String(p.responsavelProjeto || ""), String(p.impressora || ""),
       p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
       num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
       num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
-    ]);
+    ];
+    sheet.appendRow(aplicarNomeObjetoNaLinha(rowResp, idxNome, nome));
     return;
   }
   if (formato === "qtd") {
-    sheet.appendRow([
+    var rowQtd = [
       agora, p.projetoId, qtd, String(p.impressora || ""),
       p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
       num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.custoTotalUnitario),
       num(p.margem), num(p.precoSugerido), num(p.lucroEstimado),
-    ]);
+    ];
+    sheet.appendRow(aplicarNomeObjetoNaLinha(rowQtd, idxNome, nome));
     return;
   }
-  sheet.appendRow([
+  var rowAnt = [
     agora, p.projetoId, p.filamento, num(c.filamento), num(c.energia), num(c.maoDeObra),
     num(c.custosFixos), num(c.insumos), num(p.custoTotal), num(p.margem),
     num(p.precoSugerido), num(p.lucroEstimado),
-  ]);
+  ];
+  sheet.appendRow(aplicarNomeObjetoNaLinha(rowAnt, idxNome, nome));
 }
 
 function gravarLinhasFilamento(sheet, agora, projetoId, qtd, fils) {

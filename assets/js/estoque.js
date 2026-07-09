@@ -25,6 +25,7 @@
         const tr = document.createElement("tr");
         tr.innerHTML = [
           e.idRaiz,
+          e.nomeObjeto || "—",
           e.filamento || "",
           e.qtdEstoque,
           brl(e.precoRef),

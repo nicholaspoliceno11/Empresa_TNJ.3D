@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=17" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=18" />
   </head>
   <body>
     <header class="topbar">
@@ -78,6 +78,8 @@
                 <div><label for="projetoId">ID do projeto</label><input id="projetoId" type="text" readonly /></div>
                 <div><label for="qtdPecas">Qtd peças</label><input id="qtdPecas" type="number" min="1" value="1" /></div>
               </div>
+              <label for="nomeObjeto">Nome do objeto <span class="muted">(opcional)</span></label>
+              <input id="nomeObjeto" type="text" placeholder="Ex.: Suporte celular, Chaveiro logo…" maxlength="120" />
               <label for="responsavel-projeto">Responsável pelo projeto</label>
               <select id="responsavel-projeto"></select>
               <p id="reutilizar-msg" class="save-msg"></p>
@@ -131,7 +133,7 @@
           <div class="table-wrap">
             <table class="projetos">
               <thead><tr>
-                <th>Data</th><th>ID</th><th>Qtd</th><th>Responsável</th><th>Impressora</th><th>Filamento</th>
+                <th>Data</th><th>ID</th><th>Nome</th><th>Qtd</th><th>Responsável</th><th>Impressora</th><th>Filamento</th>
                 <th>Fil. R$</th><th>Energia</th><th>M.O.</th><th>Manut.</th><th>Insumos</th><th>Total</th><th>Margem</th><th>Preço/peça</th>
               </tr></thead>
               <tbody id="projetos-body"></tbody>
@@ -207,7 +209,7 @@
           <div class="table-wrap">
             <table class="projetos">
               <thead><tr>
-                <th>ID Raiz</th><th>Filamento</th><th>Qtd estoque</th><th>Preço ref.</th><th>Última atualização</th>
+                <th>ID Raiz</th><th>Nome</th><th>Filamento</th><th>Qtd estoque</th><th>Preço ref.</th><th>Última atualização</th>
               </tr></thead>
               <tbody id="estoque-body"></tbody>
             </table>
@@ -256,10 +258,10 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=17"></script>
-    <script src="assets/js/config.js?v=17"></script>
-    <script src="assets/js/app.js?v=17"></script>
-    <script src="assets/js/vendas.js?v=17"></script>
-    <script src="assets/js/estoque.js?v=17"></script>
+    <script src="assets/js/calc.js?v=18"></script>
+    <script src="assets/js/config.js?v=18"></script>
+    <script src="assets/js/app.js?v=18"></script>
+    <script src="assets/js/vendas.js?v=18"></script>
+    <script src="assets/js/estoque.js?v=18"></script>
   </body>
 </html>

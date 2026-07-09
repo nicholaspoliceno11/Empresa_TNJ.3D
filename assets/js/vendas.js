@@ -126,9 +126,10 @@
         const custoUnit = custoUnitarioProjeto(p);
         const o = document.createElement("option");
         o.value = p.projetoId;
-        o.textContent = `${p.projetoId} — ${p.filamento || ""} (${brl(precoUnit)}/peça)`;
+        o.textContent = `${p.nomeObjeto ? p.nomeObjeto + " · " : ""}${p.projetoId} — ${p.filamento || ""} (${brl(precoUnit)}/peça)`;
         o.dataset.preco = precoUnit;
         o.dataset.custoUnit = custoUnit;
+        o.dataset.nome = p.nomeObjeto || "";
         sel.appendChild(o);
       });
     } catch {

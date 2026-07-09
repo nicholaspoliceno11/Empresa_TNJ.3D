@@ -283,8 +283,14 @@
     return r;
   }
 
+  function rotuloProjeto(p) {
+    const nome = String(p.nomeObjeto || "").trim();
+    return nome ? `${p.projetoId} — ${nome}` : p.projetoId;
+  }
+
   function aplicarDetalheProjeto(detalhe) {
     $("qtdPecas").value = String(detalhe.quantidadePecas || 1);
+    if ($("nomeObjeto")) $("nomeObjeto").value = detalhe.nomeObjeto || "";
     if ($("responsavel-projeto") && detalhe.responsavelProjeto) {
       $("responsavel-projeto").value = detalhe.responsavelProjeto;
     }
@@ -319,7 +325,7 @@
       lista.forEach((p) => {
         const o = document.createElement("option");
         o.value = `${p.projetoId}|${p.data}`;
-        o.textContent = `${p.projetoId} — ${p.filamento || "sem filamento"} — ${p.data} (qtd ${p.quantidadePecas || 1})`;
+        o.textContent = `${rotuloProjeto(p)} — ${p.filamento || "sem filamento"} — ${p.data} (qtd ${p.quantidadePecas || 1})`;
         sel.appendChild(o);
       });
       if (msg) {
@@ -342,6 +348,7 @@
     if (!sel || !sel.value) {
       if (msg) msg.textContent = "";
       limparReutilizacao();
+      if ($("nomeObjeto")) $("nomeObjeto").value = "";
       await atualizarProjetoId();
       return;
     }
@@ -513,6 +520,7 @@
     const r = recalcular();
     const payload = {
       projetoId: id,
+      nomeObjeto: ($("nomeObjeto")?.value || "").trim(),
       quantidadePecas: r.quantidadePecas,
       impressora: $("impressora").selectedOptions[0]?.textContent || "",
       responsavelProjeto: $("responsavel-projeto").value,
@@ -542,6 +550,7 @@
           : `Custo ${id} gravado na planilha!`;
         $("save-msg").className = "save-msg ok";
         $("qtdPecas").value = "1";
+        if ($("nomeObjeto")) $("nomeObjeto").value = "";
         $("reutilizar-projeto").value = "";
         $("reutilizar-msg").textContent = "";
         limparReutilizacao();
@@ -571,7 +580,7 @@
       lista.forEach((p) => {
         const tr = document.createElement("tr");
         tr.innerHTML = [
-          p.data, p.projetoId, p.quantidadePecas || 1, p.responsavelProjeto || "",
+          p.data, p.projetoId, p.nomeObjeto || "—", p.quantidadePecas || 1, p.responsavelProjeto || "",
           p.impressora || "", p.filamento || "",
           brl(p.custoFilamento), brl(p.custoEnergia), brl(p.maoDeObra),
           brl(p.custosFixos), brl(p.insumos), brl(p.custoTotal),
