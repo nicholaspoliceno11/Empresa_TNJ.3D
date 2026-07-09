@@ -573,14 +573,30 @@
 
   async function carregarProjetos() {
     const info = $("projetos-info");
+    const totaisBox = $("projetos-totais");
     if (DEMO) {
       info.textContent = "Modo demonstração.";
+      if (totaisBox) totaisBox.hidden = true;
       return;
     }
     try {
       const lista = await apiJsonp("projetos").then((d) => d.projetos || []);
       $("projetos-body").innerHTML = "";
+      const soma = {
+        filamento: 0,
+        energia: 0,
+        maoDeObra: 0,
+        manut: 0,
+        insumos: 0,
+        total: 0,
+      };
       lista.forEach((p) => {
+        soma.filamento += Number(p.custoFilamento) || 0;
+        soma.energia += Number(p.custoEnergia) || 0;
+        soma.maoDeObra += Number(p.maoDeObra) || 0;
+        soma.manut += Number(p.custosFixos) || 0;
+        soma.insumos += Number(p.insumos) || 0;
+        soma.total += Number(p.custoTotal) || 0;
         const tr = document.createElement("tr");
         tr.innerHTML = [
           p.data, p.projetoId, p.nomeObjeto || "—", p.quantidadePecas || 1, p.responsavelProjeto || "",
@@ -591,9 +607,25 @@
         ].map((c) => `<td>${c}</td>`).join("");
         $("projetos-body").appendChild(tr);
       });
+      if (totaisBox) {
+        if (lista.length) {
+          totaisBox.hidden = false;
+          totaisBox.innerHTML = `
+            <div class="fin-card"><small>Total Filamento</small><b>${brl(soma.filamento)}</b></div>
+            <div class="fin-card"><small>Total Energia</small><b>${brl(soma.energia)}</b></div>
+            <div class="fin-card"><small>Total M.O.</small><b>${brl(soma.maoDeObra)}</b></div>
+            <div class="fin-card"><small>Total Manut.</small><b>${brl(soma.manut)}</b></div>
+            <div class="fin-card"><small>Total Insumos</small><b>${brl(soma.insumos)}</b></div>
+            <div class="fin-card highlight"><small>Custo total (todos)</small><b>${brl(soma.total)}</b></div>`;
+        } else {
+          totaisBox.hidden = true;
+          totaisBox.innerHTML = "";
+        }
+      }
       info.textContent = lista.length ? `${lista.length} projeto(s).` : "Nenhum projeto.";
     } catch (e) {
       info.textContent = "Erro: " + e.message;
+      if (totaisBox) totaisBox.hidden = true;
     }
   }
 

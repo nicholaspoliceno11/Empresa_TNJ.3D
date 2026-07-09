@@ -352,6 +352,9 @@ table {
 .projetos tbody tr:hover {
   background: rgba(255, 122, 24, 0.06);
 }
+.projetos-totais {
+  margin-bottom: 16px;
+}
 .muted {
   color: var(--muted);
   font-size: 14px;
