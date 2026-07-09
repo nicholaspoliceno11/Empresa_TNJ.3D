@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=16" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=17" />
   </head>
   <body>
     <header class="topbar">
@@ -101,9 +101,21 @@
             <h3>Detalhe por filamento</h3>
             <ul class="breakdown" id="r-filamentos-detalhe"></ul>
             <div class="total"><span>CUSTO TOTAL (lote)</span><b id="r-total">R$ 0,00</b></div>
+            <div class="total total-sub" id="r-total-unit-wrap" hidden>
+              <span>CUSTO UNITÁRIO (peça)</span><b id="r-total-unit">R$ 0,00</b>
+            </div>
             <div class="suggested">
-              <div><small>Preço sugerido</small><b id="r-preco">R$ 0,00</b><small id="r-preco-hint" class="muted">por peça</small></div>
-              <div><small>Lucro estimado</small><b id="r-lucro" class="profit">R$ 0,00</b><small id="r-lucro-hint" class="muted">por peça</small></div>
+              <div>
+                <small>Preço sugerido (peça)</small>
+                <b id="r-preco">R$ 0,00</b>
+              </div>
+              <div>
+                <small>Lucro estimado (peça)</small>
+                <b id="r-lucro" class="profit">R$ 0,00</b>
+              </div>
+            </div>
+            <div class="total total-sub" id="r-preco-lote-wrap" hidden>
+              <span>PREÇO TOTAL DO LOTE</span><b id="r-preco-lote">R$ 0,00</b>
             </div>
             <h3>Margens <span class="muted" style="font-weight:normal;font-size:0.85em">(por peça)</span></h3>
             <table class="margens"><thead><tr><th>%</th><th>Preço</th><th>Lucro</th></tr></thead><tbody id="tabela-margens"></tbody></table>
@@ -244,10 +256,10 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=16"></script>
-    <script src="assets/js/config.js?v=16"></script>
-    <script src="assets/js/app.js?v=16"></script>
-    <script src="assets/js/vendas.js?v=16"></script>
-    <script src="assets/js/estoque.js?v=16"></script>
+    <script src="assets/js/calc.js?v=17"></script>
+    <script src="assets/js/config.js?v=17"></script>
+    <script src="assets/js/app.js?v=17"></script>
+    <script src="assets/js/vendas.js?v=17"></script>
+    <script src="assets/js/estoque.js?v=17"></script>
   </body>
 </html>

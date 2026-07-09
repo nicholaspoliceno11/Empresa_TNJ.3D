@@ -415,28 +415,21 @@
     $("r-fixos").textContent = brl(r.custos.custosFixos);
     $("r-insumos").textContent = brl(r.custos.insumos);
     $("r-total").textContent = brl(r.custoTotal);
-    const precoEl = $("r-preco");
-    const lucroEl = $("r-lucro");
-    if (precoEl) {
-      precoEl.textContent = brl(r.precoSugerido);
-      const hint = $("r-preco-hint");
-      if (hint) {
-        hint.textContent =
-          r.quantidadePecas > 1
-            ? `por peça · lote ${r.quantidadePecas} peças = ${brl(r.precoSugeridoLote || r.precoSugerido * r.quantidadePecas)}`
-            : "por peça";
+    const unitWrap = $("r-total-unit-wrap");
+    const precoLoteWrap = $("r-preco-lote-wrap");
+    if (r.quantidadePecas > 1) {
+      if (unitWrap) unitWrap.hidden = false;
+      if ($("r-total-unit")) $("r-total-unit").textContent = brl(r.custoTotalUnitario);
+      if (precoLoteWrap) precoLoteWrap.hidden = false;
+      if ($("r-preco-lote")) {
+        $("r-preco-lote").textContent = brl(r.precoSugeridoLote || r.precoSugerido * r.quantidadePecas);
       }
+    } else {
+      if (unitWrap) unitWrap.hidden = true;
+      if (precoLoteWrap) precoLoteWrap.hidden = true;
     }
-    if (lucroEl) {
-      lucroEl.textContent = brl(r.lucroEstimado);
-      const hint = $("r-lucro-hint");
-      if (hint) {
-        hint.textContent =
-          r.quantidadePecas > 1
-            ? `por peça · lote = ${brl(r.lucroEstimadoLote || r.lucroEstimado * r.quantidadePecas)}`
-            : "por peça";
-      }
-    }
+    if ($("r-preco")) $("r-preco").textContent = brl(r.precoSugerido);
+    if ($("r-lucro")) $("r-lucro").textContent = brl(r.lucroEstimado);
 
     const det = $("r-filamentos-detalhe");
     if (det) {
