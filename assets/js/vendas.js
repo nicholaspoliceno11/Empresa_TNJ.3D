@@ -83,6 +83,38 @@
     return api().gravar({ action: "adicionarFilamento", ...payload });
   }
 
+  function precoUnitarioProjeto(p) {
+    if (p.precoSugeridoUnit > 0) return p.precoSugeridoUnit;
+    const q = Math.max(1, p.quantidadePecas || 1);
+    const cu = p.custoTotalUnitario || (p.custoTotal || 0) / q;
+    if (cu > 0 && p.margem !== undefined) {
+      return Math.round((cu * (1 + (p.margem || 0) / 100) + Number.EPSILON) * 100) / 100;
+    }
+    return (p.precoSugerido || 0) / q;
+  }
+
+  function custoUnitarioProjeto(p) {
+    const q = Math.max(1, p.quantidadePecas || 1);
+    return p.custoTotalUnitario || (p.custoTotal || 0) / q;
+  }
+
+  function atualizarPreviewVenda() {
+    const precoUnit = Number($("venda-valor").value) || 0;
+    const qtd = Math.max(1, Math.floor(Number($("venda-qtd").value) || 1));
+    const desconto = Math.max(0, Number($("venda-desconto").value) || 0);
+    const bruto = precoUnit * qtd;
+    const total = Math.max(0, bruto - desconto);
+    const el = $("venda-total-preview");
+    if (!el) return;
+    if (desconto > 0) {
+      el.textContent = `Total: ${brl(total)} (${brl(bruto)} − desconto ${brl(desconto)})`;
+    } else if (qtd > 1) {
+      el.textContent = `Total da venda: ${brl(total)} (${qtd} × ${brl(precoUnit)})`;
+    } else {
+      el.textContent = `Total da venda: ${brl(total)}`;
+    }
+  }
+
   async function preencherSelectProjetos() {
     const sel = $("venda-projeto");
     if (!sel) return;
@@ -90,11 +122,13 @@
       cacheProjetos = await api().fetchProjetos();
       sel.innerHTML = '<option value="">— Selecione o projeto —</option>';
       cacheProjetos.forEach((p) => {
+        const precoUnit = precoUnitarioProjeto(p);
+        const custoUnit = custoUnitarioProjeto(p);
         const o = document.createElement("option");
         o.value = p.projetoId;
-        o.textContent = `${p.projetoId} — ${p.filamento || ""} (${brl(p.precoSugerido || 0)})`;
-        o.dataset.preco = p.precoSugerido || 0;
-        o.dataset.custo = p.custoTotal || 0;
+        o.textContent = `${p.projetoId} — ${p.filamento || ""} (${brl(precoUnit)}/peça)`;
+        o.dataset.preco = precoUnit;
+        o.dataset.custoUnit = custoUnit;
         sel.appendChild(o);
       });
     } catch {
@@ -108,6 +142,8 @@
     if (opt && opt.dataset.preco) {
       $("venda-valor").value = Number(opt.dataset.preco).toFixed(2);
     }
+    $("venda-desconto").value = "0";
+    atualizarPreviewVenda();
   }
 
   async function registrarVenda() {
@@ -118,14 +154,22 @@
       return;
     }
     const opt = $("venda-projeto").selectedOptions[0];
+    const qtd = Math.max(1, Math.floor(Number($("venda-qtd").value) || 1));
+    const precoUnit = Number($("venda-valor").value) || 0;
+    const desconto = Math.max(0, Number($("venda-desconto").value) || 0);
+    const valorBruto = precoUnit * qtd;
+    const valorFinal = Math.max(0, valorBruto - desconto);
+    const custoUnit = Number(opt.dataset.custoUnit) || 0;
     const payload = {
       projetoId,
-      valorVenda: Number($("venda-valor").value) || 0,
-      quantidadeVenda: Math.max(1, Math.floor(Number($("venda-qtd").value) || 1)),
+      valorVenda: Math.round((valorFinal + Number.EPSILON) * 100) / 100,
+      valorBruto: Math.round((valorBruto + Number.EPSILON) * 100) / 100,
+      desconto,
+      quantidadeVenda: qtd,
       formaPagamento: $("venda-pagamento").value,
       responsavelVenda: $("venda-responsavel").value,
       observacoes: $("venda-obs").value.trim(),
-      custoTotal: Number(opt.dataset.custo) || 0,
+      custoTotal: Math.round((custoUnit * qtd + Number.EPSILON) * 100) / 100,
     };
     $("btn-registrar-venda").disabled = true;
     $("venda-msg").textContent = "Salvando…";
@@ -136,6 +180,8 @@
         $("venda-msg").className = "save-msg ok";
         $("venda-obs").value = "";
         $("venda-qtd").value = "1";
+        $("venda-desconto").value = "0";
+        atualizarPreviewVenda();
         await carregarVendas();
         await atualizarFinanceiro();
         if (window.TNJEstoque) await window.TNJEstoque.carregarEstoque();
@@ -215,6 +261,7 @@
           v.data,
           v.projetoId,
           brl(v.valorVenda),
+          v.desconto > 0 ? brl(v.desconto) : "—",
           v.formaPagamento,
           v.responsavelVenda,
           v.responsavelProjeto || "",
@@ -307,6 +354,9 @@
     optsPagamento($("venda-pagamento"));
 
     $("venda-projeto")?.addEventListener("change", aoSelecionarProjetoVenda);
+    ["venda-valor", "venda-qtd", "venda-desconto"].forEach((id) =>
+      $(id)?.addEventListener("input", atualizarPreviewVenda)
+    );
     $("btn-registrar-venda")?.addEventListener("click", registrarVenda);
     $("btn-registrar-saida")?.addEventListener("click", registrarSaida);
     $("btn-salvar-filamento")?.addEventListener("click", salvarFilamentoNovo);

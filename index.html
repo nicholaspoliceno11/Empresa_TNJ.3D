@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=14" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=16" />
   </head>
   <body>
     <header class="topbar">
@@ -100,12 +100,12 @@
             </ul>
             <h3>Detalhe por filamento</h3>
             <ul class="breakdown" id="r-filamentos-detalhe"></ul>
-            <div class="total"><span>CUSTO TOTAL</span><b id="r-total">R$ 0,00</b></div>
+            <div class="total"><span>CUSTO TOTAL (lote)</span><b id="r-total">R$ 0,00</b></div>
             <div class="suggested">
-              <div><small>Preço sugerido</small><b id="r-preco">R$ 0,00</b></div>
-              <div><small>Lucro estimado</small><b id="r-lucro" class="profit">R$ 0,00</b></div>
+              <div><small>Preço sugerido</small><b id="r-preco">R$ 0,00</b><small id="r-preco-hint" class="muted">por peça</small></div>
+              <div><small>Lucro estimado</small><b id="r-lucro" class="profit">R$ 0,00</b><small id="r-lucro-hint" class="muted">por peça</small></div>
             </div>
-            <h3>Margens</h3>
+            <h3>Margens <span class="muted" style="font-weight:normal;font-size:0.85em">(por peça)</span></h3>
             <table class="margens"><thead><tr><th>%</th><th>Preço</th><th>Lucro</th></tr></thead><tbody id="tabela-margens"></tbody></table>
           </div>
         </div>
@@ -120,7 +120,7 @@
             <table class="projetos">
               <thead><tr>
                 <th>Data</th><th>ID</th><th>Qtd</th><th>Responsável</th><th>Impressora</th><th>Filamento</th>
-                <th>Fil. R$</th><th>Energia</th><th>M.O.</th><th>Manut.</th><th>Insumos</th><th>Total</th><th>Margem</th><th>Preço</th>
+                <th>Fil. R$</th><th>Energia</th><th>M.O.</th><th>Manut.</th><th>Insumos</th><th>Total</th><th>Margem</th><th>Preço/peça</th>
               </tr></thead>
               <tbody id="projetos-body"></tbody>
             </table>
@@ -135,10 +135,13 @@
             <h2>Registrar venda</h2>
             <label for="venda-projeto">Projeto</label>
             <select id="venda-projeto"></select>
-            <label for="venda-valor">Valor da venda (R$)</label>
+            <label for="venda-valor">Valor por peça (R$)</label>
             <input id="venda-valor" type="number" step="0.01" min="0" />
             <label for="venda-qtd">Quantidade vendida</label>
             <input id="venda-qtd" type="number" min="1" value="1" />
+            <label for="venda-desconto">Desconto (R$)</label>
+            <input id="venda-desconto" type="number" step="0.01" min="0" value="0" />
+            <p id="venda-total-preview" class="muted field-hint">Total da venda: R$ 0,00</p>
             <label for="venda-pagamento">Forma de pagamento</label>
             <select id="venda-pagamento"></select>
             <label for="venda-responsavel">Responsável pela venda</label>
@@ -171,7 +174,7 @@
           <p class="muted" id="vendas-info"></p>
           <div class="table-wrap">
             <table class="projetos">
-              <thead><tr><th>Data</th><th>Projeto</th><th>Valor</th><th>Pagamento</th><th>Vendedor</th><th>Resp. Projeto</th><th>Obs</th><th>Lucro</th></tr></thead>
+              <thead><tr><th>Data</th><th>Projeto</th><th>Valor</th><th>Desconto</th><th>Pagamento</th><th>Vendedor</th><th>Resp. Projeto</th><th>Obs</th><th>Lucro</th></tr></thead>
               <tbody id="vendas-body"></tbody>
             </table>
           </div>
@@ -241,10 +244,10 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=14"></script>
-    <script src="assets/js/config.js?v=14"></script>
-    <script src="assets/js/app.js?v=14"></script>
-    <script src="assets/js/vendas.js?v=14"></script>
-    <script src="assets/js/estoque.js?v=14"></script>
+    <script src="assets/js/calc.js?v=16"></script>
+    <script src="assets/js/config.js?v=16"></script>
+    <script src="assets/js/app.js?v=16"></script>
+    <script src="assets/js/vendas.js?v=16"></script>
+    <script src="assets/js/estoque.js?v=16"></script>
   </body>
 </html>

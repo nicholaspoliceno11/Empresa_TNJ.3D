@@ -33,7 +33,7 @@ var CABECALHO_FIL_CUSTO = [
 
 var CABECALHO_VENDAS = [
   "Data", "ID Projeto", "Valor Venda", "Forma Pagamento", "Responsável Venda",
-  "Responsável Projeto", "Observações", "Custo Total", "Lucro", "Qtd Vendida",
+  "Responsável Projeto", "Observações", "Custo Total", "Lucro", "Qtd Vendida", "Desconto",
 ];
 
 var CABECALHO_SAIDAS = ["Data", "Descrição", "Valor"];
@@ -172,6 +172,18 @@ function lerCabecalho(sheet) {
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 }
 
+function precoUnitarioFromRow(custoUnit, margem, precoStored, qtd) {
+  var cu = Number(custoUnit) || 0;
+  var m = Number(margem) || 0;
+  var ps = Number(precoStored) || 0;
+  var q = Math.max(1, Math.floor(Number(qtd) || 1));
+  var fromMargem = round2(cu * (1 + m / 100));
+  if (q > 1 && ps > 0 && Math.abs(ps - fromMargem * q) < 0.05) {
+    return round2(ps / q);
+  }
+  return ps > 0 ? round2(ps) : fromMargem;
+}
+
 function lerProjetos() {
   var sheet = obterAba(ABA_PROJETOS, null, false);
   if (!sheet) return [];
@@ -183,10 +195,15 @@ function lerProjetos() {
     var r = valores[i];
     if (!r[1]) continue;
     if (formato === "comResp") {
+      var qtdResp = Number(r[2]) || 1;
+      var custoTotResp = Number(r[11]) || 0;
+      var custoUnitResp = Number(r[12]) || round2(custoTotResp / qtdResp);
+      var margemResp = Number(r[13]) || 0;
+      var precoStoredResp = Number(r[14]) || 0;
       lista.push({
         data: formatarData(r[0]),
         projetoId: String(r[1]),
-        quantidadePecas: Number(r[2]) || 1,
+        quantidadePecas: qtdResp,
         responsavelProjeto: String(r[3] || ""),
         impressora: String(r[4] || ""),
         filamento: String(r[5] || ""),
@@ -195,15 +212,22 @@ function lerProjetos() {
         maoDeObra: Number(r[8]) || 0,
         custosFixos: Number(r[9]) || 0,
         insumos: Number(r[10]) || 0,
-        custoTotal: Number(r[11]) || 0,
-        margem: Number(r[13]) || 0,
-        precoSugerido: Number(r[14]) || 0,
+        custoTotal: custoTotResp,
+        custoTotalUnitario: custoUnitResp,
+        margem: margemResp,
+        precoSugerido: precoStoredResp,
+        precoSugeridoUnit: precoUnitarioFromRow(custoUnitResp, margemResp, precoStoredResp, qtdResp),
       });
     } else if (formato === "qtd") {
+      var qtdQ = Number(r[2]) || 1;
+      var custoTotQ = Number(r[10]) || 0;
+      var custoUnitQ = Number(r[11]) || round2(custoTotQ / qtdQ);
+      var margemQ = Number(r[12]) || 0;
+      var precoStoredQ = Number(r[13]) || 0;
       lista.push({
         data: formatarData(r[0]),
         projetoId: String(r[1]),
-        quantidadePecas: Number(r[2]) || 1,
+        quantidadePecas: qtdQ,
         responsavelProjeto: "",
         impressora: String(r[3] || ""),
         filamento: String(r[4] || ""),
@@ -212,9 +236,11 @@ function lerProjetos() {
         maoDeObra: Number(r[7]) || 0,
         custosFixos: Number(r[8]) || 0,
         insumos: Number(r[9]) || 0,
-        custoTotal: Number(r[10]) || 0,
-        margem: Number(r[12]) || 0,
-        precoSugerido: Number(r[13]) || 0,
+        custoTotal: custoTotQ,
+        custoTotalUnitario: custoUnitQ,
+        margem: margemQ,
+        precoSugerido: precoStoredQ,
+        precoSugeridoUnit: precoUnitarioFromRow(custoUnitQ, margemQ, precoStoredQ, qtdQ),
       });
     } else {
       lista.push({
@@ -461,6 +487,8 @@ function lerVendas() {
   var sheet = obterAba(ABA_VENDAS, null, false);
   if (!sheet || sheet.getLastRow() < 2) return [];
   var valores = sheet.getDataRange().getValues();
+  var cab = valores[0] || [];
+  var comDesconto = String(cab[10] || "") === "Desconto";
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
@@ -476,6 +504,7 @@ function lerVendas() {
       custoTotal: Number(r[7]) || 0,
       lucro: Number(r[8]) || 0,
       quantidadeVenda: Number(r[9]) || 1,
+      desconto: comDesconto ? Number(r[10]) || 0 : 0,
     });
   }
   return lista.reverse();
@@ -686,7 +715,7 @@ function gravarCusto(p) {
     agora, p.projetoId, num(c.insumos),
   ]);
 
-  var precoUnit = qtd > 0 ? round2(num(p.precoSugerido) / qtd) : 0;
+  var precoUnit = round2(num(p.precoSugerido));
   entradaEstoque(extrairIdRaiz(p.projetoId), String(p.filamento || ""), qtd, precoUnit);
 
   return { projetoId: p.projetoId, custoTotal: num(p.custoTotal) };
@@ -753,6 +782,7 @@ function gravarVenda(p) {
   var valorVenda = num(p.valorVenda);
   var custoTotal = num(p.custoTotal);
   var qtdVenda = Math.max(1, Math.floor(num(p.quantidadeVenda) || 1));
+  var desconto = Math.max(0, num(p.desconto));
   var lucro = round2(valorVenda - custoTotal);
   var proj = buscarProjeto(p.projetoId);
   var respProj = p.responsavelProjeto || (proj ? proj.responsavelProjeto : "");
@@ -766,7 +796,14 @@ function gravarVenda(p) {
   var sheetVendas = ensureSheet(ABA_VENDAS, CABECALHO_VENDAS);
   var cabV = lerCabecalho(sheetVendas);
   var comQtd = String(cabV[9] || "") === "Qtd Vendida";
-  if (comQtd) {
+  var comDesconto = String(cabV[10] || "") === "Desconto";
+  if (comQtd && comDesconto) {
+    sheetVendas.appendRow([
+      agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
+      String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),
+      custoTotal, lucro, qtdVenda, desconto,
+    ]);
+  } else if (comQtd) {
     sheetVendas.appendRow([
       agora, p.projetoId, valorVenda, String(p.formaPagamento || ""),
       String(p.responsavelVenda || ""), String(respProj), String(p.observacoes || ""),

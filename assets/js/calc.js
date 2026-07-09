@@ -105,15 +105,17 @@
     const custoTotal =
       custoFilamento + custoEnergia + maoDeObraTotal + custosFixos + insumosTotal;
 
-    const precoSugerido = custoTotal * (1 + margem / 100);
-    const lucroEstimado = precoSugerido - custoTotal;
+    const precoSugerido = custoTotalUnit * (1 + margem / 100);
+    const lucroEstimado = precoSugerido - custoTotalUnit;
+    const precoSugeridoLote = precoSugerido * qtdPecas;
+    const lucroEstimadoLote = lucroEstimado * qtdPecas;
 
     const tabela = MARGENS_PADRAO.map((m) => {
-      const preco = custoTotal * (1 + m / 100);
+      const preco = custoTotalUnit * (1 + m / 100);
       return {
         margem: m,
         precoSugerido: round2(preco),
-        lucroEstimado: round2(preco - custoTotal),
+        lucroEstimado: round2(preco - custoTotalUnit),
       };
     });
 
@@ -148,6 +150,8 @@
       margem,
       precoSugerido: round2(precoSugerido),
       lucroEstimado: round2(lucroEstimado),
+      precoSugeridoLote: round2(precoSugeridoLote),
+      lucroEstimadoLote: round2(lucroEstimadoLote),
       tabelaMargens: tabela,
     };
   }

@@ -46,8 +46,16 @@ test("custo total bate com a planilha (R$ 10,26)", () => {
   assert.strictEqual(Calc.calcular(base).custoTotal, 10.26);
 });
 
-test("preço sugerido com margem 50% (=total*1.5)", () => {
+test("preço sugerido com margem 50% (=total*1.5 por peça)", () => {
   assert.strictEqual(Calc.calcular(base).precoSugerido, 15.39);
+});
+
+test("preço sugerido permanece por peça com qtd > 1", () => {
+  const r = Calc.calcular({ ...base, quantidadePecas: 2 });
+  assert.strictEqual(r.precoSugerido, 15.39);
+  assert.ok(r.precoSugeridoLote > r.precoSugerido);
+  assert.strictEqual(r.lucroEstimado, 5.13);
+  assert.strictEqual(r.custoTotal, 20.52);
 });
 
 test("tabela de margens 30/50/80/100", () => {

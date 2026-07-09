@@ -267,15 +267,17 @@
     r.custoTotalUnitario = r.custosUnitarios.total;
     r.custoTotal = Calc.round2(r.custoTotalUnitario * q);
     r.margem = margem;
-    r.precoSugerido = Calc.round2(r.custoTotal * (1 + margem / 100));
-    r.lucroEstimado = Calc.round2(r.precoSugerido - r.custoTotal);
+    r.precoSugerido = Calc.round2(r.custoTotalUnitario * (1 + margem / 100));
+    r.lucroEstimado = Calc.round2(r.precoSugerido - r.custoTotalUnitario);
+    r.precoSugeridoLote = Calc.round2(r.precoSugerido * q);
+    r.lucroEstimadoLote = Calc.round2(r.lucroEstimado * q);
     if (filamentoResumoReuse) r.filamentoResumo = filamentoResumoReuse;
     r.tabelaMargens = [30, 50, 80, 100].map((m) => {
-      const preco = r.custoTotal * (1 + m / 100);
+      const preco = r.custoTotalUnitario * (1 + m / 100);
       return {
         margem: m,
         precoSugerido: Calc.round2(preco),
-        lucroEstimado: Calc.round2(preco - r.custoTotal),
+        lucroEstimado: Calc.round2(preco - r.custoTotalUnitario),
       };
     });
     return r;
@@ -413,8 +415,28 @@
     $("r-fixos").textContent = brl(r.custos.custosFixos);
     $("r-insumos").textContent = brl(r.custos.insumos);
     $("r-total").textContent = brl(r.custoTotal);
-    $("r-preco").textContent = brl(r.precoSugerido);
-    $("r-lucro").textContent = brl(r.lucroEstimado);
+    const precoEl = $("r-preco");
+    const lucroEl = $("r-lucro");
+    if (precoEl) {
+      precoEl.textContent = brl(r.precoSugerido);
+      const hint = $("r-preco-hint");
+      if (hint) {
+        hint.textContent =
+          r.quantidadePecas > 1
+            ? `por peça · lote ${r.quantidadePecas} peças = ${brl(r.precoSugeridoLote || r.precoSugerido * r.quantidadePecas)}`
+            : "por peça";
+      }
+    }
+    if (lucroEl) {
+      lucroEl.textContent = brl(r.lucroEstimado);
+      const hint = $("r-lucro-hint");
+      if (hint) {
+        hint.textContent =
+          r.quantidadePecas > 1
+            ? `por peça · lote = ${brl(r.lucroEstimadoLote || r.lucroEstimado * r.quantidadePecas)}`
+            : "por peça";
+      }
+    }
 
     const det = $("r-filamentos-detalhe");
     if (det) {
@@ -560,7 +582,7 @@
           p.impressora || "", p.filamento || "",
           brl(p.custoFilamento), brl(p.custoEnergia), brl(p.maoDeObra),
           brl(p.custosFixos), brl(p.insumos), brl(p.custoTotal),
-          (p.margem || 0) + "%", brl(p.precoSugerido),
+          (p.margem || 0) + "%", brl(p.precoSugeridoUnit ?? p.precoSugerido),
         ].map((c) => `<td>${c}</td>`).join("");
         $("projetos-body").appendChild(tr);
       });
