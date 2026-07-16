@@ -630,7 +630,7 @@
         btnExcluir.type = "button";
         btnExcluir.className = "btn-excluir-projeto";
         btnExcluir.title = "Excluir projeto";
-        btnExcluir.textContent = "×";
+        btnExcluir.textContent = "Excluir";
         btnExcluir.addEventListener("click", () => {
           excluirProjeto(p.projetoId, p.data, p.nomeObjeto || "");
         });

@@ -718,9 +718,21 @@ function saidaEstoque(idRaiz, filamento, qtd) {
     return { ok: false, error: "Estoque insuficiente (disponível: " + atual + ")" };
   }
   var novaQtd = atual - qtd;
+  if (novaQtd <= 0) {
+    sheet.deleteRow(linha);
+    return { ok: true, idRaiz: idRaiz, qtdEstoque: 0, removido: true };
+  }
   sheet.getRange(linha, 3).setValue(novaQtd);
   sheet.getRange(linha, 5).setValue(new Date());
   return { ok: true, idRaiz: idRaiz, qtdEstoque: novaQtd };
+}
+
+function reverterEstoqueExclusao(idRaiz, filamento, qtd) {
+  var sheet = obterAba(ABA_ESTOQUE, null, false);
+  if (!sheet) return { ok: true, skipped: true };
+  var linha = buscarLinhaEstoque(sheet, idRaiz, filamento);
+  if (linha < 0) return { ok: true, skipped: true };
+  return saidaEstoque(idRaiz, filamento, qtd);
 }
 
 function calcularFinanceiro() {
@@ -824,7 +836,7 @@ function excluirProjeto(projetoId, dataRef) {
   }
 
   var info = extrairQtdFilamentoProjeto(encontrado);
-  var estoqueResult = saidaEstoque(extrairIdRaiz(id), info.filamento, info.qtd);
+  var estoqueResult = reverterEstoqueExclusao(extrairIdRaiz(id), info.filamento, info.qtd);
   if (!estoqueResult.ok) {
     throw new Error("Não foi possível ajustar o estoque: " + (estoqueResult.error || "erro"));
   }

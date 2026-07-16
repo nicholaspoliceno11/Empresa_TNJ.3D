@@ -355,22 +355,35 @@ table {
 .projetos-totais {
   margin-bottom: 16px;
 }
+.projetos th:last-child,
+.projetos td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--panel);
+  box-shadow: -6px 0 10px rgba(0, 0, 0, 0.25);
+}
+.projetos tbody tr:hover td:last-child {
+  background: #1c2435;
+}
 .td-acoes {
   text-align: center !important;
-  padding: 6px 8px !important;
+  padding: 6px 10px !important;
 }
 .btn-excluir-projeto {
-  background: transparent;
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.45);
   color: #ef4444;
-  font-size: 18px;
-  line-height: 1;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
-  padding: 2px 8px;
+  padding: 5px 10px;
   border-radius: 6px;
+  white-space: nowrap;
 }
 .btn-excluir-projeto:hover {
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.2);
   border-color: #ef4444;
 }
 .muted {
