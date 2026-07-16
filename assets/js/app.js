@@ -571,6 +571,25 @@
     }
   }
 
+  async function excluirProjeto(projetoId, data, nomeObjeto) {
+    const label = nomeObjeto ? `"${nomeObjeto}" (${projetoId})` : projetoId;
+    const msg =
+      `Excluir o projeto ${label}?\n\n` +
+      "Isso remove o registro de todas as abas da planilha e ajusta o estoque. Não pode ser desfeito.";
+    if (!confirm(msg)) return;
+
+    const info = $("projetos-info");
+    info.textContent = "Excluindo...";
+    try {
+      const resp = await apiGravar({ action: "excluirProjeto", projetoId, data });
+      if (!resp?.ok) throw new Error(resp?.error || "Erro ao excluir");
+      await carregarProjetos();
+      preencherSelectReutilizar();
+    } catch (e) {
+      info.textContent = "Erro: " + e.message;
+    }
+  }
+
   async function carregarProjetos() {
     const info = $("projetos-info");
     const totaisBox = $("projetos-totais");
@@ -605,6 +624,18 @@
           brl(p.custosFixos), brl(p.insumos), brl(p.custoTotal),
           (p.margem || 0) + "%", brl(p.precoSugeridoUnit ?? p.precoSugerido),
         ].map((c) => `<td>${c}</td>`).join("");
+        const tdAcoes = document.createElement("td");
+        tdAcoes.className = "td-acoes";
+        const btnExcluir = document.createElement("button");
+        btnExcluir.type = "button";
+        btnExcluir.className = "btn-excluir-projeto";
+        btnExcluir.title = "Excluir projeto";
+        btnExcluir.textContent = "×";
+        btnExcluir.addEventListener("click", () => {
+          excluirProjeto(p.projetoId, p.data, p.nomeObjeto || "");
+        });
+        tdAcoes.appendChild(btnExcluir);
+        tr.appendChild(tdAcoes);
         $("projetos-body").appendChild(tr);
       });
       if (totaisBox) {

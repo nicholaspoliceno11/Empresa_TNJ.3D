@@ -135,6 +135,9 @@ function processarGravar(dados) {
   if (acao === "definirSaldoCaixa") {
     return { ok: true, resultado: definirSaldoCaixa(dados.saldo) };
   }
+  if (acao === "excluirProjeto") {
+    return { ok: true, resultado: excluirProjeto(dados.projetoId, dados.data) };
+  }
   return { ok: true, resultado: gravarCusto(dados) };
 }
 
@@ -766,6 +769,81 @@ function buscarProjeto(projetoId) {
     if (lista[i].projetoId === projetoId) return lista[i];
   }
   return null;
+}
+
+function projetoTemVenda(projetoId) {
+  var vendas = lerVendas();
+  var alvo = String(projetoId);
+  for (var i = 0; i < vendas.length; i++) {
+    if (vendas[i].projetoId === alvo) return true;
+  }
+  return false;
+}
+
+function removerLinhasPorProjeto(sheet, projetoId, dataRef) {
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  var valores = sheet.getDataRange().getValues();
+  var removidas = 0;
+  for (var i = valores.length - 1; i >= 1; i--) {
+    var row = valores[i];
+    if (String(row[1]) !== String(projetoId)) continue;
+    if (!datasCompativeis(row[0], dataRef)) continue;
+    sheet.deleteRow(i + 1);
+    removidas++;
+  }
+  return removidas;
+}
+
+function extrairQtdFilamentoProjeto(encontrado) {
+  var r = encontrado.row;
+  var formato = encontrado.formato;
+  var qtd = 1;
+  var filamento = "";
+  if (formato === "comResp") {
+    qtd = Number(r[2]) || 1;
+    filamento = String(r[5] || "");
+  } else if (formato === "qtd") {
+    qtd = Number(r[2]) || 1;
+    filamento = String(r[4] || "");
+  } else {
+    filamento = String(r[2] || "");
+  }
+  return { qtd: qtd, filamento: filamento };
+}
+
+function excluirProjeto(projetoId, dataRef) {
+  var id = String(projetoId || "").trim();
+  if (!id) throw new Error("ID do projeto obrigatório");
+  if (!dataRef) throw new Error("Data do registro obrigatória");
+
+  var encontrado = buscarLinhaProjeto(id, dataRef);
+  if (!encontrado) throw new Error("Projeto não encontrado: " + id);
+
+  if (projetoTemVenda(id)) {
+    throw new Error("Projeto já vendido; exclusão bloqueada.");
+  }
+
+  var info = extrairQtdFilamentoProjeto(encontrado);
+  var estoqueResult = saidaEstoque(extrairIdRaiz(id), info.filamento, info.qtd);
+  if (!estoqueResult.ok) {
+    throw new Error("Não foi possível ajustar o estoque: " + (estoqueResult.error || "erro"));
+  }
+
+  var abas = [
+    ABA_PROJETOS,
+    ABA_FILAMENTO_CUSTO,
+    ABA_ENERGIA,
+    ABA_MAO_DE_OBRA,
+    ABA_MANUTENCAO,
+    ABA_INSUMOS,
+  ];
+  var totalRemovidas = 0;
+  abas.forEach(function (nome) {
+    var sheet = obterAba(nome, null, false);
+    totalRemovidas += removerLinhasPorProjeto(sheet, id, dataRef);
+  });
+
+  return { projetoId: id, linhasRemovidas: totalRemovidas };
 }
 
 /* -------------------- Gravação -------------------- */

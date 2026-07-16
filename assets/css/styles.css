@@ -355,6 +355,24 @@ table {
 .projetos-totais {
   margin-bottom: 16px;
 }
+.td-acoes {
+  text-align: center !important;
+  padding: 6px 8px !important;
+}
+.btn-excluir-projeto {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.btn-excluir-projeto:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+}
 .muted {
   color: var(--muted);
   font-size: 14px;
