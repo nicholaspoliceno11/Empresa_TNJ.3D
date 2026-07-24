@@ -151,6 +151,9 @@ function processarGravar(dados) {
   if (acao === "alterarStatusFilamento") {
     return { ok: true, resultado: alterarStatusFilamento(dados) };
   }
+  if (acao) {
+    return { ok: false, error: "Ação não reconhecida no servidor: " + acao + ". Cole o Codigo.gs atualizado e publique Nova versão." };
+  }
   return { ok: true, resultado: gravarCusto(dados) };
 }
 

@@ -9,6 +9,7 @@
 
   let demoFilamentos = null;
   let cacheLista = [];
+  let apiFilamentosDesatualizada = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -33,14 +34,48 @@
   }
 
   async function fetchListaFilamentos() {
-    if (api().isDemo()) return getDemoFilamentos().slice();
+    if (api().isDemo()) {
+      apiFilamentosDesatualizada = false;
+      return getDemoFilamentos().slice();
+    }
     const data = await api().jsonp("filamentos");
     if (!data.ok) throw new Error(data.error || "Falha ao carregar filamentos");
-    return (data.filamentos || []).map((f) => ({
+    const raw = data.filamentos || [];
+    apiFilamentosDesatualizada = !raw.some(
+      (f) => f.linha !== undefined || f.status !== undefined || f.ativo !== undefined
+    );
+    return raw.map((f, i) => ({
       ...f,
+      linha: f.linha || i + 2,
       status: f.status || (f.ativo === false ? "Esgotado" : "Ativo"),
       ativo: f.ativo !== false && f.status !== "Esgotado",
     }));
+  }
+
+  function validarRespostaFilamento(resp, acaoEsperada) {
+    if (!resp?.ok) throw new Error(resp?.error || "Erro ao salvar na planilha");
+    if (resp.demo) return;
+    const r = resp.resultado || {};
+    if (acaoEsperada === "alterarStatusFilamento" && !r.status) {
+      throw new Error(
+        "O servidor não atualizou o status. Cole o apps-script/Codigo.gs na planilha e publique Nova versão do App da Web."
+      );
+    }
+    if (acaoEsperada === "atualizarFilamento" && !r.material) {
+      throw new Error(
+        "O servidor não salvou a edição. Atualize o Apps Script (Codigo.gs) e publique Nova versão."
+      );
+    }
+    if (acaoEsperada === "excluirFilamento" && r.material === undefined && !r.linha) {
+      throw new Error(
+        "O servidor não excluiu o filamento. Atualize o Apps Script (Codigo.gs) e publique Nova versão."
+      );
+    }
+    if (acaoEsperada === "adicionarFilamento" && !r.material) {
+      throw new Error(
+        "O servidor não adicionou o filamento. Atualize o Apps Script (Codigo.gs) e publique Nova versão."
+      );
+    }
   }
 
   async function gravarAcao(payload) {
@@ -111,7 +146,7 @@
           material: dados.material,
           valor: dados.valor,
         });
-        if (!resp?.ok) throw new Error(resp?.error || "Erro ao salvar");
+        validarRespostaFilamento(resp, "atualizarFilamento");
       }
       await sincronizarCalculadora();
       await carregarFilamentos();
@@ -134,7 +169,7 @@
         });
       } else {
         const resp = await gravarAcao({ action: "excluirFilamento", linha: f.linha });
-        if (!resp?.ok) throw new Error(resp?.error || "Erro ao excluir");
+        validarRespostaFilamento(resp, "excluirFilamento");
       }
       await sincronizarCalculadora();
       await carregarFilamentos();
@@ -144,6 +179,12 @@
   }
 
   async function alternarEsgotado(f) {
+    if (apiFilamentosDesatualizada) {
+      $("filamentos-info").textContent =
+        "Atualize o Apps Script (Codigo.gs) e publique Nova versão para marcar filamentos como esgotados.";
+      $("filamentos-info").className = "save-msg err";
+      return;
+    }
     const esgotado = f.ativo !== false;
     const acao = esgotado ? "marcar como esgotado" : "reativar";
     const msg = esgotado
@@ -165,10 +206,11 @@
           linha: f.linha,
           esgotado: esgotado,
         });
-        if (!resp?.ok) throw new Error(resp?.error || "Erro ao atualizar status");
+        validarRespostaFilamento(resp, "alterarStatusFilamento");
       }
       await sincronizarCalculadora();
       await carregarFilamentos();
+      if (info) info.textContent = esgotado ? "Filamento marcado como esgotado." : "Filamento reativado.";
     } catch (e) {
       if (info) info.textContent = "Erro: " + e.message;
     }
@@ -200,7 +242,9 @@
     btnEsgotado.type = "button";
     btnEsgotado.className = f.ativo ? "btn-fil-esgotado" : "btn-fil-reativar";
     btnEsgotado.textContent = f.ativo ? "Acabou" : "Reativar";
-    btnEsgotado.title = f.ativo ? "Filamento esgotado — remove da calculadora" : "Voltar a aparecer na calculadora";
+    btnEsgotado.title = f.ativo
+      ? "Marca como esgotado — some da calculadora (clique no botão, não digite no nome)"
+      : "Voltar a aparecer na calculadora";
     btnEsgotado.addEventListener("click", () => alternarEsgotado(f));
 
     const btnExcluir = document.createElement("button");
@@ -225,9 +269,15 @@
       cacheLista.forEach((f) => body.appendChild(renderLinhaFilamento(f)));
       const ativos = cacheLista.filter((f) => f.ativo !== false).length;
       if (info) {
-        info.textContent = cacheLista.length
+        let texto = cacheLista.length
           ? `${cacheLista.length} filamento(s) · ${ativos} disponível(is) na calculadora.`
           : "Nenhum filamento cadastrado.";
+        if (apiFilamentosDesatualizada) {
+          texto +=
+            " Para usar Editar, Acabou e Excluir, atualize o Apps Script (Codigo.gs) e publique Nova versão.";
+        }
+        info.textContent = texto;
+        info.className = apiFilamentosDesatualizada ? "save-msg err" : "muted";
       }
     } catch (e) {
       if (info) info.textContent = "Erro: " + e.message;
@@ -259,7 +309,7 @@
         });
       } else {
         const resp = await gravarAcao({ action: "adicionarFilamento", material, valor });
-        if (!resp?.ok) throw new Error(resp?.error || "Erro ao salvar");
+        validarRespostaFilamento(resp, "adicionarFilamento");
       }
       $("novo-fil-material").value = "";
       $("novo-fil-valor").value = "";
