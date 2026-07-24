@@ -721,6 +721,16 @@ tr.projeto-em-edicao td:last-child {
 .venda-item .row {
   margin-top: 8px;
 }
+.cartao-detalhes {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 8px 0 14px;
+}
+.cartao-detalhes label:first-child {
+  margin-top: 0;
+}
 
 textarea {
   width: 100%;

@@ -37,6 +37,109 @@
     });
   }
 
+  const MAX_PARCELAS = 12;
+
+  function pagamentoEhCartaoCredito(id) {
+    return id === "CC";
+  }
+
+  function pagamentoEhCartao(id) {
+    return id === "CC" || id === "CD";
+  }
+
+  function preencherOptsParcelas(sel) {
+    if (!sel) return;
+    sel.innerHTML = "";
+    for (let n = 1; n <= MAX_PARCELAS; n++) {
+      const o = document.createElement("option");
+      o.value = String(n);
+      o.textContent = n === 1 ? "À vista (1x)" : `${n}x`;
+      sel.appendChild(o);
+    }
+  }
+
+  function valorParcela(total, parcelas) {
+    const p = Math.max(1, Math.floor(Number(parcelas) || 1));
+    const t = Math.max(0, Number(total) || 0);
+    return Math.round((t / p + Number.EPSILON) * 100) / 100;
+  }
+
+  function textoParcelas(parcelas, valorParc, total) {
+    const p = Math.max(1, Math.floor(Number(parcelas) || 1));
+    const vp = Number(valorParc) || valorParcela(total, p);
+    if (p <= 1) return "À vista";
+    return `${p}x de ${brl(vp)}`;
+  }
+
+  function totalVendaAtual() {
+    const itens = lerItensVenda();
+    const desconto = Math.max(0, Number($("venda-desconto")?.value) || 0);
+    const bruto = itens.reduce((s, i) => s + i.bruto, 0);
+    return Math.max(0, bruto - desconto);
+  }
+
+  function atualizarDetalhesCartaoVenda() {
+    const forma = $("venda-pagamento")?.value || "";
+    const box = $("venda-cartao-detalhes");
+    if (!box) return;
+    const mostrar = pagamentoEhCartao(forma);
+    box.hidden = !mostrar;
+    const selParc = $("venda-parcelas");
+    if (selParc) selParc.disabled = !pagamentoEhCartaoCredito(forma);
+    if (!pagamentoEhCartaoCredito(forma) && selParc) selParc.value = "1";
+    const total = totalVendaAtual();
+    const parcelas = Math.max(1, Math.floor(Number(selParc?.value) || 1));
+    const vp = valorParcela(total, parcelas);
+    const prev = $("venda-parcela-preview");
+    if (prev) {
+      if (!mostrar) prev.textContent = "—";
+      else if (parcelas <= 1) prev.textContent = `Total no cartão: ${brl(total)}`;
+      else prev.textContent = `${parcelas} parcelas de ${brl(vp)} (total ${brl(total)})`;
+    }
+  }
+
+  function atualizarDetalhesCartaoSaida() {
+    const forma = $("saida-pagamento")?.value || "";
+    const box = $("saida-cartao-detalhes");
+    if (!box) return;
+    const mostrar = pagamentoEhCartao(forma);
+    box.hidden = !mostrar;
+    const selParc = $("saida-parcelas");
+    if (selParc) selParc.disabled = !pagamentoEhCartaoCredito(forma);
+    if (!pagamentoEhCartaoCredito(forma) && selParc) selParc.value = "1";
+    const total = Math.max(0, Number($("saida-valor")?.value) || 0);
+    const parcelas = Math.max(1, Math.floor(Number(selParc?.value) || 1));
+    const vp = valorParcela(total, parcelas);
+    const prev = $("saida-parcela-preview");
+    if (prev) {
+      if (!mostrar) prev.textContent = "—";
+      else if (parcelas <= 1) prev.textContent = `Total no cartão: ${brl(total)}`;
+      else prev.textContent = `${parcelas} parcelas de ${brl(vp)} (total ${brl(total)})`;
+    }
+  }
+
+  function lerDetalhesCartao(prefix, total) {
+    const forma = $(`${prefix}-pagamento`)?.value || "";
+    if (!pagamentoEhCartao(forma)) {
+      return { parcelas: 1, valorParcela: total, cartao: "" };
+    }
+    const parcelas = pagamentoEhCartaoCredito(forma)
+      ? Math.max(1, Math.min(MAX_PARCELAS, Math.floor(Number($(`${prefix}-parcelas`)?.value) || 1)))
+      : 1;
+    return {
+      parcelas,
+      valorParcela: valorParcela(total, parcelas),
+      cartao: ($(`${prefix}-cartao`)?.value || "").trim(),
+    };
+  }
+
+  function limparDetalhesCartao(prefix) {
+    const parc = $(`${prefix}-parcelas`);
+    const cartao = $(`${prefix}-cartao`);
+    if (parc) parc.value = "1";
+    if (cartao) cartao.value = "";
+  }
+
   function rotuloProjeto(p) {
     const nome = String(p.nomeObjeto || "").trim();
     return nome || p.projetoId;
@@ -159,6 +262,7 @@
     } else {
       el.textContent = `Total da venda: ${brl(total)}`;
     }
+    atualizarDetalhesCartaoVenda();
   }
 
   function renderItensVenda() {
@@ -253,6 +357,9 @@
       return;
     }
     const desconto = Math.max(0, Number($("venda-desconto").value) || 0);
+    const bruto = itens.reduce((s, i) => s + i.bruto, 0);
+    const total = Math.max(0, bruto - desconto);
+    const cartao = lerDetalhesCartao("venda", total);
     const payload = {
       itens: itens.map((i) => ({
         projetoId: i.projetoId,
@@ -264,6 +371,9 @@
       formaPagamento: $("venda-pagamento").value,
       responsavelVenda: $("venda-responsavel").value,
       observacoes: $("venda-obs").value.trim(),
+      parcelas: cartao.parcelas,
+      valorParcela: cartao.valorParcela,
+      cartao: cartao.cartao,
     };
     $("btn-registrar-venda").disabled = true;
     $("venda-msg").textContent = "Salvando…";
@@ -277,6 +387,8 @@
         $("venda-msg").className = "save-msg ok";
         $("venda-obs").value = "";
         $("venda-desconto").value = "0";
+        limparDetalhesCartao("venda");
+        atualizarDetalhesCartaoVenda();
         $("venda-itens").innerHTML = "";
         renderItensVenda();
         atualizarPreviewVenda();
@@ -306,11 +418,22 @@
       $("saida-msg").className = "save-msg err";
       return;
     }
+    const cartao = lerDetalhesCartao("saida", valor);
     try {
-      const resp = await gravarSaida({ descricao: desc, valor, tipo, pagamento });
+      const resp = await gravarSaida({
+        descricao: desc,
+        valor,
+        tipo,
+        pagamento,
+        parcelas: cartao.parcelas,
+        valorParcela: cartao.valorParcela,
+        cartao: cartao.cartao,
+      });
       if (resp && resp.ok) {
         $("saida-desc").value = "";
         $("saida-valor").value = "";
+        limparDetalhesCartao("saida");
+        atualizarDetalhesCartaoSaida();
         $("saida-msg").textContent = "Pagamento registrado!";
         $("saida-msg").className = "save-msg ok";
         await carregarSaidas();
@@ -395,6 +518,9 @@
       body.innerHTML = "";
       lista.forEach((v) => {
         const tr = document.createElement("tr");
+        const parcelasTxt = pagamentoEhCartao(v.formaPagamento)
+          ? textoParcelas(v.parcelas, v.valorParcela, v.valorVenda)
+          : "—";
         tr.innerHTML = [
           v.data,
           v.vendaId || "—",
@@ -402,6 +528,8 @@
           brl(v.valorVenda),
           v.desconto > 0 ? brl(v.desconto) : "—",
           v.formaPagamento,
+          parcelasTxt,
+          v.cartao || "—",
           v.responsavelVenda,
           v.responsavelProjeto || "",
           v.observacoes || "",
@@ -427,7 +555,10 @@
       bodyProd.innerHTML = "";
       lista.forEach((s) => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${s.data}</td><td>${s.descricao}</td><td>${brl(s.valor)}</td><td>${s.pagamento || "—"}</td>`;
+        const parcelasTxt = pagamentoEhCartao(s.pagamento)
+          ? textoParcelas(s.parcelas, s.valorParcela, s.valor)
+          : "—";
+        tr.innerHTML = `<td>${s.data}</td><td>${s.descricao}</td><td>${brl(s.valor)}</td><td>${s.pagamento || "—"}</td><td>${parcelasTxt}</td><td>${s.cartao || "—"}</td>`;
         if (String(s.tipo) === "Produto") {
           bodyProd.appendChild(tr);
         } else {
@@ -504,10 +635,17 @@
     optsResponsaveis($("responsavel-projeto"));
     optsPagamento($("venda-pagamento"));
     optsPagamento($("saida-pagamento"));
+    preencherOptsParcelas($("venda-parcelas"));
+    preencherOptsParcelas($("saida-parcelas"));
 
     renderItensVenda();
     $("btn-add-venda-item")?.addEventListener("click", adicionarLinhaVenda);
     $("venda-desconto")?.addEventListener("input", atualizarPreviewVenda);
+    $("venda-pagamento")?.addEventListener("change", atualizarDetalhesCartaoVenda);
+    $("venda-parcelas")?.addEventListener("change", atualizarDetalhesCartaoVenda);
+    $("saida-pagamento")?.addEventListener("change", atualizarDetalhesCartaoSaida);
+    $("saida-parcelas")?.addEventListener("change", atualizarDetalhesCartaoSaida);
+    $("saida-valor")?.addEventListener("input", atualizarDetalhesCartaoSaida);
     $("btn-registrar-venda")?.addEventListener("click", registrarVenda);
     $("btn-registrar-saida")?.addEventListener("click", registrarSaida);
     $("btn-salvar-filamento")?.addEventListener("click", salvarFilamentoNovo);

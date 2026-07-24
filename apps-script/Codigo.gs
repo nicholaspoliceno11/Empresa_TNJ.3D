@@ -37,9 +37,10 @@ var CABECALHO_FIL_CUSTO = [
 var CABECALHO_VENDAS = [
   "Data", "ID Projeto", "Valor Venda", "Forma Pagamento", "Responsável Venda",
   "Responsável Projeto", "Observações", "Custo Total", "Lucro", "Qtd Vendida", "Desconto", "ID Venda",
+  "Parcelas", "Valor Parcela", "Cartão",
 ];
 
-var CABECALHO_SAIDAS = ["Data", "Descrição", "Valor", "Tipo", "Pagamento"];
+var CABECALHO_SAIDAS = ["Data", "Descrição", "Valor", "Tipo", "Pagamento", "Parcelas", "Valor Parcela", "Cartão"];
 
 var CABECALHO_CAIXA = ["Saldo (R$)", "Última atualização"];
 
@@ -561,6 +562,9 @@ function lerVendas() {
   var idxDesconto = indiceColuna(cab, "Desconto");
   var idxQtd = indiceColuna(cab, "Qtd Vendida");
   var idxVendaId = indiceColuna(cab, "ID Venda");
+  var idxParcelas = indiceColuna(cab, "Parcelas");
+  var idxValorParcela = indiceColuna(cab, "Valor Parcela");
+  var idxCartao = indiceColuna(cab, "Cartão");
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
@@ -578,6 +582,9 @@ function lerVendas() {
       quantidadeVenda: idxQtd >= 0 ? Number(r[idxQtd]) || 1 : 1,
       desconto: idxDesconto >= 0 ? Number(r[idxDesconto]) || 0 : 0,
       vendaId: idxVendaId >= 0 ? String(r[idxVendaId] || "") : "",
+      parcelas: idxParcelas >= 0 ? Number(r[idxParcelas]) || 1 : 1,
+      valorParcela: idxValorParcela >= 0 ? Number(r[idxValorParcela]) || 0 : 0,
+      cartao: idxCartao >= 0 ? String(r[idxCartao] || "") : "",
     });
   }
   return lista.reverse();
@@ -590,6 +597,9 @@ function lerSaidas() {
   var cab = valores[0] || [];
   var idxTipo = indiceColuna(cab, "Tipo");
   var idxPag = indiceColuna(cab, "Pagamento");
+  var idxParcelas = indiceColuna(cab, "Parcelas");
+  var idxValorParcela = indiceColuna(cab, "Valor Parcela");
+  var idxCartao = indiceColuna(cab, "Cartão");
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var r = valores[i];
@@ -600,6 +610,9 @@ function lerSaidas() {
       valor: Number(r[2]) || 0,
       tipo: idxTipo >= 0 ? String(r[idxTipo] || "Fixo") : "Fixo",
       pagamento: idxPag >= 0 ? String(r[idxPag] || "") : "",
+      parcelas: idxParcelas >= 0 ? Number(r[idxParcelas]) || 1 : 1,
+      valorParcela: idxValorParcela >= 0 ? Number(r[idxValorParcela]) || 0 : 0,
+      cartao: idxCartao >= 0 ? String(r[idxCartao] || "") : "",
     });
   }
   return lista.reverse();
@@ -607,7 +620,7 @@ function lerSaidas() {
 
 function ensureColunasVendas(sheet) {
   var cab = lerCabecalho(sheet);
-  var extras = ["Qtd Vendida", "Desconto", "ID Venda"];
+  var extras = ["Qtd Vendida", "Desconto", "ID Venda", "Parcelas", "Valor Parcela", "Cartão"];
   extras.forEach(function (nome) {
     if (indiceColuna(cab, nome) >= 0) return;
     var col = cab.length + 1;
@@ -618,7 +631,7 @@ function ensureColunasVendas(sheet) {
 
 function ensureColunasSaidas(sheet) {
   var cab = lerCabecalho(sheet);
-  [["Tipo", "Fixo"], ["Pagamento", ""]].forEach(function (par) {
+  [["Tipo", "Fixo"], ["Pagamento", ""], ["Parcelas", 1], ["Valor Parcela", 0], ["Cartão", ""]].forEach(function (par) {
     if (indiceColuna(cab, par[0]) >= 0) return;
     var col = cab.length + 1;
     sheet.getRange(1, col).setValue(par[0]).setFontWeight("bold");
@@ -1150,6 +1163,32 @@ function gravarVenda(p) {
   return { vendaId: vendaId, itens: [item] };
 }
 
+function detalhesCartaoPayload(p, valorRef) {
+  var forma = String(p.formaPagamento || p.pagamento || "");
+  if (!pagamentoEhCartao(forma)) {
+    return { parcelas: 1, valorParcela: num(valorRef), cartao: "" };
+  }
+  var parcelas = pagamentoEhCartaoCredito(forma)
+    ? Math.max(1, Math.min(12, Math.floor(num(p.parcelas) || 1)))
+    : 1;
+  var total = Math.max(0, num(valorRef));
+  var valorParcela = round2(total / parcelas);
+  return {
+    parcelas: parcelas,
+    valorParcela: num(p.valorParcela) > 0 ? round2(num(p.valorParcela)) : valorParcela,
+    cartao: String(p.cartao || "").trim(),
+  };
+}
+
+function pagamentoEhCartao(forma) {
+  var f = String(forma || "").toUpperCase();
+  return f === "CC" || f === "CD";
+}
+
+function pagamentoEhCartaoCredito(forma) {
+  return String(forma || "").toUpperCase() === "CC";
+}
+
 function gravarVendaMultipla(p) {
   var vendaId = proximoIdVenda();
   var forma = String(p.formaPagamento || "");
@@ -1162,6 +1201,7 @@ function gravarVendaMultipla(p) {
     brutoTotal += precoUnit * qtd;
   });
   var liquidoTotal = Math.max(0, brutoTotal - descontoTotal);
+  var cartaoInfo = detalhesCartaoPayload(p, liquidoTotal);
   var fator = brutoTotal > 0 ? liquidoTotal / brutoTotal : 1;
   var resultados = [];
   var totalCash = 0;
@@ -1180,6 +1220,9 @@ function gravarVendaMultipla(p) {
       observacoes: p.observacoes,
       custoTotal: num(item.custoTotal),
       responsavelProjeto: item.responsavelProjeto,
+      parcelas: cartaoInfo.parcelas,
+      valorParcela: cartaoInfo.valorParcela,
+      cartao: cartaoInfo.cartao,
     }, vendaId, descontoItem);
     resultados.push(r);
     totalCash += valorItem;
@@ -1200,6 +1243,7 @@ function gravarVendaItem(p, vendaId, descontoLinha) {
   var proj = buscarProjeto(p.projetoId);
   var respProj = p.responsavelProjeto || (proj ? proj.responsavelProjeto : "");
   var filamento = proj ? proj.filamento : "";
+  var cartaoInfo = detalhesCartaoPayload(p, valorVenda);
 
   var estoque = saidaEstoque(extrairIdRaiz(p.projetoId), filamento, qtdVenda);
   if (estoque && estoque.ok === false) {
@@ -1222,6 +1266,9 @@ function gravarVendaItem(p, vendaId, descontoLinha) {
     "Qtd Vendida": qtdVenda,
     "Desconto": desconto,
     "ID Venda": String(vendaId || ""),
+    "Parcelas": cartaoInfo.parcelas,
+    "Valor Parcela": cartaoInfo.valorParcela,
+    "Cartão": cartaoInfo.cartao,
   };
   sheetVendas.appendRow(montarLinhaPorCabecalho(cabV, dados));
 
@@ -1251,12 +1298,16 @@ function gravarSaida(p) {
   var sheet = ensureSheet(ABA_SAIDAS, CABECALHO_SAIDAS);
   ensureColunasSaidas(sheet);
   var cab = lerCabecalho(sheet);
+  var cartaoInfo = detalhesCartaoPayload(p, valor);
   var dados = {
     "Data": agora,
     "Descrição": String(p.descricao || ""),
     "Valor": valor,
     "Tipo": tipo,
     "Pagamento": pagamento,
+    "Parcelas": cartaoInfo.parcelas,
+    "Valor Parcela": cartaoInfo.valorParcela,
+    "Cartão": cartaoInfo.cartao,
   };
   sheet.appendRow(montarLinhaPorCabecalho(cab, dados));
   if (pagamentoEhDinheiro(pagamento)) {
