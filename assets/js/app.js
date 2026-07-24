@@ -6,7 +6,7 @@
   const Calc = window.TNJCalc;
   const STORAGE_KEY = "tnj_api_url";
   const SEQ_KEY = "tnj_projeto_seq";
-  const MAX_FIL = cfg.MAX_FILAMENTOS || 4;
+  const FIL_INICIAIS = cfg.FILAMENTOS_INICIAIS || cfg.MAX_FILAMENTOS || 4;
 
   function resolveApiUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -157,51 +157,80 @@
     });
   }
 
-  function buildFilamentSlots() {
-    const wrap = $("filamentos-slots");
-    if (!wrap) return;
-    wrap.innerHTML = "";
-    for (let i = 0; i < MAX_FIL; i++) {
-      const div = document.createElement("div");
-      div.className = "fil-slot" + (i > 0 ? " fil-slot-extra" : "");
-      div.dataset.idx = String(i);
-      div.innerHTML = `
+  function criarFilamentoSlot(index, checked) {
+    const div = document.createElement("div");
+    div.className = "fil-slot" + (index > 0 ? " fil-slot-extra" : "");
+    div.dataset.idx = String(index);
+    div.innerHTML = `
         <div class="fil-slot-head">
-          <label><input type="checkbox" class="fil-ativo" ${i === 0 ? "checked" : ""}/> Filamento ${i + 1}</label>
+          <label><input type="checkbox" class="fil-ativo" ${checked ? "checked" : ""}/> <span class="fil-slot-label">Filamento ${index + 1}</span></label>
         </div>
         <label>Material</label>
         <select class="fil-select"></select>
         <div class="row">
           <div><label>Preço (R$/Kg)</label><input class="fil-preco" type="number" step="0.01" min="0"/></div>
           <div><label>Quantidade</label><div class="input-unit">
-            <input class="fil-qtd" type="number" step="0.01" min="0" value="${i === 0 ? "1.14" : "0"}"/>
+            <input class="fil-qtd" type="number" step="0.01" min="0" value="${index === 0 ? "1.14" : "0"}"/>
             <select class="fil-un-qtd"><option value="g" selected>g</option><option value="kg">Kg</option></select>
           </div></div>
         </div>
         <div class="row">
           <div><label>Tempo impressão</label><div class="input-unit">
-            <input class="fil-tempo" type="number" step="0.01" min="0" value="${i === 0 ? "0.12" : "0"}"/>
+            <input class="fil-tempo" type="number" step="0.01" min="0" value="${index === 0 ? "0.12" : "0"}"/>
             <select class="fil-un-tempo"><option value="h" selected>horas</option><option value="min">min</option></select>
           </div></div>
         </div>`;
-      wrap.appendChild(div);
-      const sel = div.querySelector(".fil-select");
-      optionsFilamentos(sel);
-      sel.addEventListener("change", () => {
-        limparReutilizacao();
-        onFilSelect(div);
-      });
-      div.querySelectorAll("input,select").forEach((n) =>
-        n.addEventListener("input", () => {
-          limparReutilizacao();
-          recalcular();
-        })
-      );
-      div.querySelector(".fil-ativo").addEventListener("change", () => {
+    const sel = div.querySelector(".fil-select");
+    optionsFilamentos(sel);
+    sel.addEventListener("change", () => {
+      limparReutilizacao();
+      onFilSelect(div);
+    });
+    div.querySelectorAll("input,select").forEach((n) =>
+      n.addEventListener("input", () => {
         limparReutilizacao();
         recalcular();
-      });
-      if (i === 0) onFilSelect(div);
+      })
+    );
+    div.querySelector(".fil-ativo").addEventListener("change", () => {
+      limparReutilizacao();
+      recalcular();
+    });
+    if (checked) onFilSelect(div);
+    return div;
+  }
+
+  function renumerarFilamentosSlots() {
+    document.querySelectorAll(".fil-slot").forEach((slot, i) => {
+      slot.dataset.idx = String(i);
+      const label = slot.querySelector(".fil-slot-label");
+      if (label) label.textContent = `Filamento ${i + 1}`;
+    });
+  }
+
+  function adicionarFilamentoSlot(checked) {
+    const wrap = $("filamentos-slots");
+    if (!wrap) return null;
+    const index = wrap.querySelectorAll(".fil-slot").length;
+    const div = criarFilamentoSlot(index, checked);
+    wrap.appendChild(div);
+    renumerarFilamentosSlots();
+    return div;
+  }
+
+  function garantirSlotsFilamento(qtd) {
+    const min = Math.max(FIL_INICIAIS, qtd);
+    while (document.querySelectorAll(".fil-slot").length < min) {
+      adicionarFilamentoSlot(false);
+    }
+  }
+
+  function buildFilamentSlots() {
+    const wrap = $("filamentos-slots");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    for (let i = 0; i < FIL_INICIAIS; i++) {
+      wrap.appendChild(criarFilamentoSlot(i, i === 0));
     }
   }
 
@@ -220,6 +249,8 @@
   }
 
   function aplicarFilamentosSlots(lista) {
+    if (!lista || !lista.length) return;
+    garantirSlotsFilamento(lista.length);
     const slots = document.querySelectorAll(".fil-slot");
     slots.forEach((slot, i) => {
       const fil = lista[i];
@@ -721,6 +752,11 @@
     });
 
     buildFilamentSlots();
+    $("btn-add-filamento")?.addEventListener("click", () => {
+      limparReutilizacao();
+      adicionarFilamentoSlot(true);
+      recalcular();
+    });
     initTabs();
     initConfig();
     if (window.TNJVendas) window.TNJVendas.initVendas();

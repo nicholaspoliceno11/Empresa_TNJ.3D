@@ -38,6 +38,8 @@ window.TNJConfig = {
   ],
 
   MAX_FILAMENTOS: 4,
+  // Quantidade inicial de blocos na calculadora (use + para adicionar mais).
+  FILAMENTOS_INICIAIS: 4,
 
   // Valores padrão iguais aos da planilha (aba "Calculadora").
   PADROES: {

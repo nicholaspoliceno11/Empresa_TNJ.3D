@@ -128,3 +128,26 @@ test("múltiplos filamentos somam custos e tempos", () => {
   assert.strictEqual(r.horas, 1.5);
   assert.strictEqual(r.filamentoResumo, "PLA + PETG");
 });
+
+test("aceita mais de 4 filamentos ativos", () => {
+  const filamentos = Array.from({ length: 5 }, (_, i) => ({
+    ativo: true,
+    material: `Cor ${i + 1}`,
+    precoFilamentoKg: 100,
+    quantidade: 1,
+    unidadeQuantidade: "g",
+    tempo: 0.1,
+    unidadeTempo: "h",
+  }));
+  const r = Calc.calcular({
+    filamentos,
+    consumoW: 0,
+    valorKwh: 0,
+    maoDeObra: 0,
+    taxaManutencaoHora: 0,
+    insumos: 0,
+    margem: 0,
+  });
+  assert.strictEqual(r.filamentos.length, 5);
+  assert.strictEqual(r.custos.filamento, 0.5);
+});

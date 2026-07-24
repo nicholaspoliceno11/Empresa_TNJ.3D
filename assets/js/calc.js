@@ -41,7 +41,6 @@
     if (Array.isArray(input.filamentos) && input.filamentos.length) {
       return input.filamentos
         .filter((f) => f && f.ativo !== false)
-        .slice(0, MAX_FILAMENTOS)
         .map((f) => ({
           material: f.material || "",
           precoFilamentoKg: toNumber(f.precoFilamentoKg),
