@@ -281,34 +281,34 @@
     const u = custosReutilizados;
     const margem = Calc.toNumber($("margem").value);
     r.custosUnitarios = {
-      filamento: u.filamento,
-      energia: u.energia,
-      maoDeObra: u.maoDeObra,
-      custosFixos: u.custosFixos,
-      insumos: u.insumos,
-      total: Calc.round2(u.filamento + u.energia + u.maoDeObra + u.custosFixos + u.insumos),
+      filamento: Calc.roundMoney(u.filamento),
+      energia: Calc.roundMoney(u.energia),
+      maoDeObra: Calc.roundMoney(u.maoDeObra),
+      custosFixos: Calc.roundMoney(u.custosFixos),
+      insumos: Calc.roundMoney(u.insumos),
+      total: Calc.roundMoney(u.filamento + u.energia + u.maoDeObra + u.custosFixos + u.insumos),
     };
     r.custos = {
-      filamento: Calc.round2(u.filamento * q),
-      energia: Calc.round2(u.energia * q),
-      maoDeObra: Calc.round2(u.maoDeObra * q),
-      custosFixos: Calc.round2(u.custosFixos * q),
-      insumos: Calc.round2(u.insumos * q),
+      filamento: Calc.roundMoney(u.filamento * q),
+      energia: Calc.roundMoney(u.energia * q),
+      maoDeObra: Calc.roundMoney(u.maoDeObra * q),
+      custosFixos: Calc.roundMoney(u.custosFixos * q),
+      insumos: Calc.roundMoney(u.insumos * q),
     };
     r.custoTotalUnitario = r.custosUnitarios.total;
-    r.custoTotal = Calc.round2(r.custoTotalUnitario * q);
+    r.custoTotal = Calc.roundMoney(r.custoTotalUnitario * q);
     r.margem = margem;
-    r.precoSugerido = Calc.round2(r.custoTotalUnitario * (1 + margem / 100));
-    r.lucroEstimado = Calc.round2(r.precoSugerido - r.custoTotalUnitario);
-    r.precoSugeridoLote = Calc.round2(r.precoSugerido * q);
-    r.lucroEstimadoLote = Calc.round2(r.lucroEstimado * q);
+    r.precoSugerido = Calc.roundMoney(r.custoTotalUnitario * (1 + margem / 100));
+    r.lucroEstimado = Calc.roundMoney(r.precoSugerido - r.custoTotalUnitario);
+    r.precoSugeridoLote = Calc.roundMoney(r.precoSugerido * q);
+    r.lucroEstimadoLote = Calc.roundMoney(r.lucroEstimado * q);
     if (filamentoResumoReuse) r.filamentoResumo = filamentoResumoReuse;
     r.tabelaMargens = [30, 50, 80, 100].map((m) => {
-      const preco = r.custoTotalUnitario * (1 + m / 100);
+      const preco = Calc.roundMoney(r.custoTotalUnitario * (1 + m / 100));
       return {
         margem: m,
-        precoSugerido: Calc.round2(preco),
-        lucroEstimado: Calc.round2(preco - r.custoTotalUnitario),
+        precoSugerido: preco,
+        lucroEstimado: Calc.roundMoney(preco - r.custoTotalUnitario),
       };
     });
     return r;

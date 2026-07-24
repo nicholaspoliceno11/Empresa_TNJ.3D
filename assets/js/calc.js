@@ -37,6 +37,36 @@
     return Math.round((n + Number.EPSILON) * 100) / 100;
   }
 
+  /**
+   * Arredonda valores em R$ para múltiplos de R$ 0,05:
+   * centavo terminando em 1–4 → sobe para X5; 6–9 → sobe para próximo X0; 0 e 5 mantém.
+   */
+  function arredondarMoeda(n) {
+    const valor = toNumber(n);
+    const neg = valor < 0;
+    let centavosTotal = Math.round(Math.abs(valor) * 100);
+    const reais = Math.floor(centavosTotal / 100);
+    const cents = centavosTotal % 100;
+    const ultimo = cents % 10;
+    const dezena = Math.floor(cents / 10);
+
+    let novoCents;
+    if (ultimo === 0 || ultimo === 5) {
+      novoCents = cents;
+    } else if (ultimo >= 1 && ultimo <= 4) {
+      novoCents = dezena * 10 + 5;
+    } else {
+      novoCents = (dezena + 1) * 10;
+    }
+
+    let resultado = novoCents >= 100 ? reais + 1 : reais + novoCents / 100;
+    return neg ? -resultado : resultado;
+  }
+
+  function roundMoney(n) {
+    return arredondarMoeda(round2(n));
+  }
+
   function normalizarFilamentos(input) {
     if (Array.isArray(input.filamentos) && input.filamentos.length) {
       return input.filamentos
@@ -85,7 +115,7 @@
         precoFilamentoKg: f.precoFilamentoKg,
         gramas: round2(g),
         horas: h,
-        custoUnitario: round2(custo),
+        custoUnitario: roundMoney(custo),
       };
     });
 
@@ -93,28 +123,31 @@
     const custoEnergiaUnit = (consumoW / 1000) * h * valorKwh;
     const custosFixosUnit = taxaManutencaoHora * h;
 
-    const custoFilamento = custoFilamentoUnit * qtdPecas;
-    const custoEnergia = custoEnergiaUnit * qtdPecas;
-    const custosFixos = custosFixosUnit * qtdPecas;
-    const maoDeObraTotal = maoDeObra * qtdPecas;
-    const insumosTotal = insumos * qtdPecas;
+    const cuFil = roundMoney(custoFilamentoUnit);
+    const cuEn = roundMoney(custoEnergiaUnit);
+    const cuMO = roundMoney(maoDeObra);
+    const cuFix = roundMoney(custosFixosUnit);
+    const cuIns = roundMoney(insumos);
+    const custoTotalUnit = roundMoney(cuFil + cuEn + cuMO + cuFix + cuIns);
 
-    const custoTotalUnit =
-      custoFilamentoUnit + custoEnergiaUnit + maoDeObra + custosFixosUnit + insumos;
-    const custoTotal =
-      custoFilamento + custoEnergia + maoDeObraTotal + custosFixos + insumosTotal;
+    const custoFilamento = roundMoney(cuFil * qtdPecas);
+    const custoEnergia = roundMoney(cuEn * qtdPecas);
+    const custosFixos = roundMoney(cuFix * qtdPecas);
+    const maoDeObraTotal = roundMoney(cuMO * qtdPecas);
+    const insumosTotal = roundMoney(cuIns * qtdPecas);
+    const custoTotal = roundMoney(custoFilamento + custoEnergia + maoDeObraTotal + custosFixos + insumosTotal);
 
-    const precoSugerido = custoTotalUnit * (1 + margem / 100);
-    const lucroEstimado = precoSugerido - custoTotalUnit;
-    const precoSugeridoLote = precoSugerido * qtdPecas;
-    const lucroEstimadoLote = lucroEstimado * qtdPecas;
+    const precoSugerido = roundMoney(custoTotalUnit * (1 + margem / 100));
+    const lucroEstimado = roundMoney(precoSugerido - custoTotalUnit);
+    const precoSugeridoLote = roundMoney(precoSugerido * qtdPecas);
+    const lucroEstimadoLote = roundMoney(lucroEstimado * qtdPecas);
 
     const tabela = MARGENS_PADRAO.map((m) => {
-      const preco = custoTotalUnit * (1 + m / 100);
+      const preco = roundMoney(custoTotalUnit * (1 + m / 100));
       return {
         margem: m,
-        precoSugerido: round2(preco),
-        lucroEstimado: round2(preco - custoTotalUnit),
+        precoSugerido: preco,
+        lucroEstimado: roundMoney(preco - custoTotalUnit),
       };
     });
 
@@ -130,27 +163,27 @@
       filamentos: detalhesFilamentos,
       filamentoResumo,
       custosUnitarios: {
-        filamento: round2(custoFilamentoUnit),
-        energia: round2(custoEnergiaUnit),
-        maoDeObra: round2(maoDeObra),
-        custosFixos: round2(custosFixosUnit),
-        insumos: round2(insumos),
-        total: round2(custoTotalUnit),
+        filamento: cuFil,
+        energia: cuEn,
+        maoDeObra: cuMO,
+        custosFixos: cuFix,
+        insumos: cuIns,
+        total: custoTotalUnit,
       },
       custos: {
-        filamento: round2(custoFilamento),
-        energia: round2(custoEnergia),
-        maoDeObra: round2(maoDeObraTotal),
-        custosFixos: round2(custosFixos),
-        insumos: round2(insumosTotal),
+        filamento: custoFilamento,
+        energia: custoEnergia,
+        maoDeObra: maoDeObraTotal,
+        custosFixos: custosFixos,
+        insumos: insumosTotal,
       },
-      custoTotalUnitario: round2(custoTotalUnit),
-      custoTotal: round2(custoTotal),
+      custoTotalUnitario: custoTotalUnit,
+      custoTotal: custoTotal,
       margem,
-      precoSugerido: round2(precoSugerido),
-      lucroEstimado: round2(lucroEstimado),
-      precoSugeridoLote: round2(precoSugeridoLote),
-      lucroEstimadoLote: round2(lucroEstimadoLote),
+      precoSugerido: precoSugerido,
+      lucroEstimado: lucroEstimado,
+      precoSugeridoLote: precoSugeridoLote,
+      lucroEstimadoLote: lucroEstimadoLote,
       tabelaMargens: tabela,
     };
   }
@@ -162,6 +195,8 @@
     gramas,
     horas,
     round2,
+    roundMoney,
+    arredondarMoeda,
     calcular,
   };
 });
