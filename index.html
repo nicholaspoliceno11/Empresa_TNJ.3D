@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=23" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=24" />
   </head>
   <body>
     <header class="topbar">
@@ -160,6 +160,7 @@
             <p id="venda-total-preview" class="muted field-hint">Total da venda: R$ 0,00</p>
             <label for="venda-pagamento">Forma de pagamento</label>
             <select id="venda-pagamento"></select>
+            <p class="muted field-hint">Com <strong>CC</strong> ou <strong>CD</strong>, aparecem os campos de parcelas e nome do cartão.</p>
             <div id="venda-cartao-detalhes" class="cartao-detalhes" hidden>
               <label for="venda-parcelas">Parcelas no cartão</label>
               <select id="venda-parcelas"></select>
@@ -187,6 +188,7 @@
             <input id="saida-valor" type="number" step="0.01" min="0" />
             <label for="saida-pagamento">Forma de pagamento</label>
             <select id="saida-pagamento"></select>
+            <p class="muted field-hint">Com <strong>CC</strong> ou <strong>CD</strong>, aparecem os campos de parcelas e nome do cartão.</p>
             <div id="saida-cartao-detalhes" class="cartao-detalhes" hidden>
               <label for="saida-parcelas">Parcelas no cartão</label>
               <select id="saida-parcelas"></select>
@@ -297,10 +299,10 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=21"></script>
-    <script src="assets/js/config.js?v=21"></script>
-    <script src="assets/js/app.js?v=21"></script>
-    <script src="assets/js/vendas.js?v=22"></script>
-    <script src="assets/js/estoque.js?v=21"></script>
+    <script src="assets/js/calc.js?v=24"></script>
+    <script src="assets/js/config.js?v=24"></script>
+    <script src="assets/js/app.js?v=24"></script>
+    <script src="assets/js/vendas.js?v=24"></script>
+    <script src="assets/js/estoque.js?v=24"></script>
   </body>
 </html>
