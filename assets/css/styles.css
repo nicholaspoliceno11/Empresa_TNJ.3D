@@ -12,6 +12,7 @@
   --red: #ef4444;
   --radius: 14px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --layout-max: 1680px;
 }
 
 * {
@@ -118,9 +119,10 @@ body {
 
 /* ---------- Layout ---------- */
 .container {
-  max-width: 1180px;
+  max-width: var(--layout-max);
+  width: min(100% - 32px, var(--layout-max));
   margin: 26px auto;
-  padding: 0 20px;
+  padding: 0 16px;
 }
 
 .view {
@@ -334,16 +336,19 @@ table {
 /* ---------- Projetos ---------- */
 .table-wrap {
   overflow-x: auto;
+  margin: 0 -4px;
 }
 .projetos {
-  min-width: 900px;
+  min-width: 1240px;
+  width: 100%;
 }
 .projetos th,
 .projetos td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   text-align: right;
   white-space: nowrap;
+  font-size: 13px;
 }
 .projetos th:nth-child(-n + 3),
 .projetos td:nth-child(-n + 3) {
@@ -389,9 +394,9 @@ tr.projeto-em-edicao td:last-child {
 }
 .projetos .proj-edit-nome,
 .projetos .proj-edit-filamento {
-  min-width: 120px;
+  min-width: 140px;
   width: 100%;
-  max-width: 180px;
+  max-width: 240px;
   padding: 6px 8px;
   font-size: 13px;
 }
@@ -473,9 +478,10 @@ tr.projeto-em-edicao td:last-child {
 
 /* ---------- Footer ---------- */
 .foot {
-  max-width: 1180px;
+  max-width: var(--layout-max);
+  width: min(100% - 32px, var(--layout-max));
   margin: 30px auto;
-  padding: 0 20px;
+  padding: 0 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
