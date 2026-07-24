@@ -168,17 +168,16 @@
         <label>Material</label>
         <select class="fil-select"></select>
         <div class="row">
-          <div><label>Preço (R$/Kg)</label><input class="fil-preco" type="number" step="0.01" min="0"/></div>
+          <div><label>Preço (R$/Kg)</label><input class="fil-preco" type="text" readonly tabindex="-1"/></div>
           <div><label>Quantidade</label><div class="input-unit">
             <input class="fil-qtd" type="number" step="0.01" min="0" value="${index === 0 ? "1.14" : "0"}"/>
             <select class="fil-un-qtd"><option value="g" selected>g</option><option value="kg">Kg</option></select>
           </div></div>
         </div>
         <div class="row">
-          <div><label>Tempo impressão</label><div class="input-unit">
-            <input class="fil-tempo" type="number" step="0.01" min="0" value="${index === 0 ? "0.12" : "0"}"/>
-            <select class="fil-un-tempo"><option value="h" selected>horas</option><option value="min">min</option></select>
-          </div></div>
+          <div><label>Tempo impressão</label>
+            <input class="fil-tempo input-tempo-hhmm" type="text" placeholder="00:00" value="00:00" maxlength="5" inputmode="numeric"/>
+          </div>
         </div>`;
     const sel = div.querySelector(".fil-select");
     optionsFilamentos(sel);
@@ -186,18 +185,76 @@
       limparReutilizacao();
       onFilSelect(div);
     });
-    div.querySelectorAll("input,select").forEach((n) =>
+    div.querySelectorAll("input:not([readonly]),select").forEach((n) =>
       n.addEventListener("input", () => {
         limparReutilizacao();
         recalcular();
       })
     );
+    const tempoInput = div.querySelector(".fil-tempo");
+    tempoInput.addEventListener("focus", () => tempoInput.select());
+    tempoInput.addEventListener("blur", () => {
+      tempoInput.value = Calc.normalizarInputHHMM(tempoInput.value);
+    });
+    tempoInput.addEventListener("change", () => {
+      div.dataset.tempoManual = "1";
+      limparReutilizacao();
+      recalcular();
+    });
     div.querySelector(".fil-ativo").addEventListener("change", () => {
       limparReutilizacao();
+      distribuirTempoFilamentos(true);
       recalcular();
     });
     if (checked) onFilSelect(div);
     return div;
+  }
+
+  function slotsFilamentoAtivos() {
+    return [...document.querySelectorAll(".fil-slot")].filter((s) => s.querySelector(".fil-ativo").checked);
+  }
+
+  function distribuirTempoFilamentos(resetManual) {
+    const totalEl = $("tempo-total-impressao");
+    if (!totalEl) return;
+    totalEl.value = Calc.normalizarInputHHMM(totalEl.value);
+    const totalHoras = Calc.parseTempoHHMM(totalEl.value);
+    const ativos = slotsFilamentoAtivos();
+    if (!ativos.length) return;
+
+    if (resetManual) {
+      ativos.forEach((s) => delete s.dataset.tempoManual);
+    }
+
+    const manual = ativos.filter((s) => s.dataset.tempoManual === "1");
+    const auto = ativos.filter((s) => s.dataset.tempoManual !== "1");
+    if (!auto.length) return;
+
+    const manualSum = manual.reduce(
+      (s, slot) => s + Calc.parseTempoHHMM(slot.querySelector(".fil-tempo").value),
+      0
+    );
+    const restante = Math.max(0, totalHoras - manualSum);
+    const porSlot = restante / auto.length;
+    const hhmm = Calc.formatHorasParaHHMM(porSlot);
+
+    auto.forEach((slot) => {
+      slot.querySelector(".fil-tempo").value = hhmm;
+    });
+  }
+
+  function initTempoTotalImpressao() {
+    const totalEl = $("tempo-total-impressao");
+    if (!totalEl) return;
+    totalEl.addEventListener("focus", () => totalEl.select());
+    totalEl.addEventListener("blur", () => {
+      totalEl.value = Calc.normalizarInputHHMM(totalEl.value);
+    });
+    totalEl.addEventListener("change", () => {
+      limparReutilizacao();
+      distribuirTempoFilamentos(true);
+      recalcular();
+    });
   }
 
   function renumerarFilamentosSlots() {
@@ -215,6 +272,7 @@
     const div = criarFilamentoSlot(index, checked);
     wrap.appendChild(div);
     renumerarFilamentosSlots();
+    if (checked) distribuirTempoFilamentos(true);
     return div;
   }
 
@@ -264,10 +322,17 @@
       slot.querySelector(".fil-preco").value = Number(fil.precoFilamentoKg || 0).toFixed(2);
       slot.querySelector(".fil-qtd").value = fil.quantidade ?? 0;
       slot.querySelector(".fil-un-qtd").value = fil.unidadeQuantidade || "g";
-      slot.querySelector(".fil-tempo").value = fil.tempo ?? 0;
-      slot.querySelector(".fil-un-tempo").value = fil.unidadeTempo || "h";
+      slot.querySelector(".fil-tempo").value = Calc.formatHorasParaHHMM(
+        Calc.horas(fil.tempo, fil.unidadeTempo || "h")
+      );
+      delete slot.dataset.tempoManual;
       if (!Number(fil.precoFilamentoKg)) onFilSelect(slot);
     });
+    const totalHoras = lista
+      .filter((f) => f && f.ativo !== false)
+      .reduce((s, f) => s + Calc.horas(f.tempo, f.unidadeTempo || "h"), 0);
+    const totalEl = $("tempo-total-impressao");
+    if (totalEl) totalEl.value = Calc.formatHorasParaHHMM(totalHoras);
   }
 
   function limparReutilizacao() {
@@ -428,7 +493,7 @@
         quantidade: slot.querySelector(".fil-qtd").value,
         unidadeQuantidade: slot.querySelector(".fil-un-qtd").value,
         tempo: slot.querySelector(".fil-tempo").value,
-        unidadeTempo: slot.querySelector(".fil-un-tempo").value,
+        unidadeTempo: "hhmm",
       });
     });
     return lista;
@@ -477,7 +542,7 @@
       det.innerHTML = r.filamentos
         .map(
           (f) =>
-            `<li><span>${f.material || "—"}</span><span>${f.gramas}g · ${f.horas.toFixed(2)}h · ${brl(f.custoUnitario)}</span></li>`
+            `<li><span>${f.material || "—"}</span><span>${f.gramas}g · ${Calc.formatHorasParaHHMM(f.horas)} · ${brl(f.custoUnitario)}</span></li>`
         )
         .join("");
     }
@@ -752,6 +817,7 @@
     });
 
     buildFilamentSlots();
+    initTempoTotalImpressao();
     $("btn-add-filamento")?.addEventListener("click", () => {
       limparReutilizacao();
       adicionarFilamentoSlot(true);

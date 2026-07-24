@@ -32,6 +32,14 @@ test("arredondarMoeda: centavos 1-4 sobem para 5 e 6-9 para próximo 0", () => {
   assert.strictEqual(Calc.arredondarMoeda(10.1), 10.1);
 });
 
+test("tempo HH:MM converte para horas decimais", () => {
+  assert.strictEqual(Calc.parseTempoHHMM("03:00"), 3);
+  assert.strictEqual(Calc.parseTempoHHMM("01:30"), 1.5);
+  assert.strictEqual(Calc.formatHorasParaHHMM(1.5), "01:30");
+  assert.strictEqual(Calc.horas("03:00", "hhmm"), 3);
+  assert.strictEqual(Calc.normalizarInputHHMM("300"), "03:00");
+});
+
 test("custo do filamento (=preço/1000*g)", () => {
   assert.strictEqual(Calc.calcular(base).custos.filamento, 0.15);
 });

@@ -39,6 +39,9 @@
             <fieldset>
               <legend>Filamentos</legend>
               <p class="muted field-hint">Marque os filamentos usados. Cada um com quantidade (g/Kg) e tempo de impressão.</p>
+              <label for="tempo-total-impressao">Tempo total de impressão</label>
+              <input id="tempo-total-impressao" type="text" class="input-tempo-hhmm" placeholder="00:00" value="00:00" maxlength="5" inputmode="numeric" />
+              <p class="muted field-hint">Dividido automaticamente entre os filamentos marcados. Ajuste o tempo de cada um manualmente se precisar.</p>
               <div id="filamentos-slots"></div>
               <button type="button" id="btn-add-filamento" class="btn btn-add-item">+ Adicionar filamento</button>
             </fieldset>

@@ -29,8 +29,35 @@
   }
 
   function horas(tempo, unidade) {
+    if (unidade === "hhmm" || String(tempo).includes(":")) {
+      return parseTempoHHMM(tempo);
+    }
     const t = toNumber(tempo);
     return unidade === "min" ? t / 60 : t;
+  }
+
+  function parseTempoHHMM(str) {
+    const s = String(str || "").trim();
+    if (!s) return 0;
+    const m = s.match(/^(\d+):(\d{1,2})$/);
+    if (m) return Number(m[1]) + Number(m[2]) / 60;
+    return toNumber(s);
+  }
+
+  function formatHorasParaHHMM(horasDec) {
+    const totalMin = Math.round(Math.max(0, Number(horasDec) || 0) * 60);
+    const hh = Math.floor(totalMin / 60);
+    const mm = totalMin % 60;
+    return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+  }
+
+  function normalizarInputHHMM(str) {
+    const digits = String(str || "").replace(/\D/g, "").slice(0, 4);
+    if (!digits) return "00:00";
+    const padded = digits.padStart(4, "0");
+    const mm = Math.min(59, Number(padded.slice(-2)));
+    const hh = Number(padded.slice(0, -2));
+    return formatHorasParaHHMM(hh + mm / 60);
   }
 
   function round2(n) {
@@ -194,6 +221,9 @@
     toNumber,
     gramas,
     horas,
+    parseTempoHHMM,
+    formatHorasParaHHMM,
+    normalizarInputHHMM,
     round2,
     roundMoney,
     arredondarMoeda,

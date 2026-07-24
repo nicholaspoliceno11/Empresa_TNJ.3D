@@ -507,6 +507,20 @@ table {
   width: auto;
   accent-color: var(--brand);
 }
+.input-tempo-hhmm {
+  max-width: 96px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.fil-preco[readonly] {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+#tempo-total-impressao {
+  max-width: 120px;
+  margin-bottom: 4px;
+}
 
 /* ---------- Vendas / Financeiro ---------- */
 .grid-vendas {
