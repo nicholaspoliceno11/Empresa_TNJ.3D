@@ -667,6 +667,112 @@
     }
   }
 
+  function optionsHtmlResponsaveis(selecionado) {
+    const lista = cfg.RESPONSAVEIS || [];
+    let html = '<option value="">—</option>';
+    lista.forEach((nome) => {
+      const sel = nome === selecionado ? " selected" : "";
+      html += `<option value="${nome}"${sel}>${nome}</option>`;
+    });
+    if (selecionado && !lista.includes(selecionado)) {
+      html += `<option value="${selecionado}" selected>${selecionado}</option>`;
+    }
+    return html;
+  }
+
+  function optionsHtmlImpressoras(selecionado) {
+    const lista = cfg.IMPRESSORAS || [];
+    let html = "";
+    lista.forEach((imp) => {
+      const sel = imp.nome === selecionado ? " selected" : "";
+      html += `<option value="${imp.nome}"${sel}>${imp.nome}</option>`;
+    });
+    if (selecionado && !lista.some((i) => i.nome === selecionado)) {
+      html += `<option value="${selecionado}" selected>${selecionado}</option>`;
+    }
+    return html;
+  }
+
+  function lerDadosEdicaoProjeto(tr) {
+    return {
+      nomeObjeto: tr.querySelector(".proj-edit-nome")?.value.trim() || "",
+      quantidadePecas: Math.max(1, Math.floor(Calc.toNumber(tr.querySelector(".proj-edit-qtd")?.value) || 1)),
+      responsavelProjeto: tr.querySelector(".proj-edit-resp")?.value || "",
+      impressora: tr.querySelector(".proj-edit-impressora")?.value || "",
+      filamento: tr.querySelector(".proj-edit-filamento")?.value.trim() || "",
+    };
+  }
+
+  function entrarEdicaoProjeto(tr, p) {
+    if (document.querySelector("tr.projeto-em-edicao")) return;
+    tr.classList.add("projeto-em-edicao");
+    tr.dataset.projetoId = p.projetoId;
+    tr.dataset.data = p.data;
+
+    const setCell = (cls, html) => {
+      const td = tr.querySelector(`td.${cls}`);
+      if (td) td.innerHTML = html;
+    };
+
+    setCell(
+      "proj-col-nome",
+      `<input type="text" class="proj-edit-nome" value="${(p.nomeObjeto || "").replace(/"/g, "&quot;")}" maxlength="120"/>`
+    );
+    setCell(
+      "proj-col-qtd",
+      `<input type="number" class="proj-edit-qtd" min="1" step="1" value="${p.quantidadePecas || 1}"/>`
+    );
+    setCell(
+      "proj-col-resp",
+      `<select class="proj-edit-resp">${optionsHtmlResponsaveis(p.responsavelProjeto || "")}</select>`
+    );
+    setCell(
+      "proj-col-impressora",
+      `<select class="proj-edit-impressora">${optionsHtmlImpressoras(p.impressora || "")}</select>`
+    );
+    setCell(
+      "proj-col-filamento",
+      `<input type="text" class="proj-edit-filamento" value="${(p.filamento || "").replace(/"/g, "&quot;")}"/>`
+    );
+
+    const tdAcoes = tr.querySelector(".td-acoes");
+    if (tdAcoes) {
+      tdAcoes.innerHTML = "";
+      const btnSalvar = document.createElement("button");
+      btnSalvar.type = "button";
+      btnSalvar.className = "btn-salvar-projeto";
+      btnSalvar.textContent = "Salvar";
+      btnSalvar.addEventListener("click", () => salvarProjeto(tr, p));
+      const btnCancelar = document.createElement("button");
+      btnCancelar.type = "button";
+      btnCancelar.className = "btn-cancelar-projeto";
+      btnCancelar.textContent = "Cancelar";
+      btnCancelar.addEventListener("click", () => carregarProjetos());
+      tdAcoes.appendChild(btnSalvar);
+      tdAcoes.appendChild(btnCancelar);
+    }
+  }
+
+  async function salvarProjeto(tr, p) {
+    const info = $("projetos-info");
+    const dados = lerDadosEdicaoProjeto(tr);
+    info.textContent = "Salvando...";
+    try {
+      const resp = await apiGravar({
+        action: "atualizarProjeto",
+        projetoId: p.projetoId,
+        data: p.data,
+        ...dados,
+      });
+      if (!resp?.ok) throw new Error(resp?.error || "Erro ao salvar");
+      await carregarProjetos();
+      preencherSelectReutilizar();
+      info.textContent = "Projeto atualizado.";
+    } catch (e) {
+      info.textContent = "Erro: " + e.message;
+    }
+  }
+
   async function excluirProjeto(projetoId, data, nomeObjeto) {
     const label = nomeObjeto ? `"${nomeObjeto}" (${projetoId})` : projetoId;
     const msg =
@@ -714,14 +820,25 @@
         soma.total += Number(p.custoTotal) || 0;
         const tr = document.createElement("tr");
         tr.innerHTML = [
-          p.data, p.projetoId, p.nomeObjeto || "—", p.quantidadePecas || 1, p.responsavelProjeto || "",
-          p.impressora || "", p.filamento || "",
+          `<td class="proj-col-data">${p.data}</td>`,
+          `<td class="proj-col-id">${p.projetoId}</td>`,
+          `<td class="proj-col-nome">${p.nomeObjeto || "—"}</td>`,
+          `<td class="proj-col-qtd">${p.quantidadePecas || 1}</td>`,
+          `<td class="proj-col-resp">${p.responsavelProjeto || ""}</td>`,
+          `<td class="proj-col-impressora">${p.impressora || ""}</td>`,
+          `<td class="proj-col-filamento">${p.filamento || ""}</td>`,
           brl(p.custoFilamento), brl(p.custoEnergia), brl(p.maoDeObra),
           brl(p.custosFixos), brl(p.insumos), brl(p.custoTotal),
           (p.margem || 0) + "%", brl(p.precoSugeridoUnit ?? p.precoSugerido),
-        ].map((c) => `<td>${c}</td>`).join("");
+        ].map((c) => (String(c).startsWith("<td") ? c : `<td>${c}</td>`)).join("");
         const tdAcoes = document.createElement("td");
         tdAcoes.className = "td-acoes";
+        const btnEditar = document.createElement("button");
+        btnEditar.type = "button";
+        btnEditar.className = "btn-editar-projeto";
+        btnEditar.title = "Editar projeto";
+        btnEditar.textContent = "Editar";
+        btnEditar.addEventListener("click", () => entrarEdicaoProjeto(tr, p));
         const btnExcluir = document.createElement("button");
         btnExcluir.type = "button";
         btnExcluir.className = "btn-excluir-projeto";
@@ -730,6 +847,7 @@
         btnExcluir.addEventListener("click", () => {
           excluirProjeto(p.projetoId, p.data, p.nomeObjeto || "");
         });
+        tdAcoes.appendChild(btnEditar);
         tdAcoes.appendChild(btnExcluir);
         tr.appendChild(tdAcoes);
         $("projetos-body").appendChild(tr);

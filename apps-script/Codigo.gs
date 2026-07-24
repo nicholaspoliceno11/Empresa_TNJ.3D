@@ -138,6 +138,9 @@ function processarGravar(dados) {
   if (acao === "excluirProjeto") {
     return { ok: true, resultado: excluirProjeto(dados.projetoId, dados.data) };
   }
+  if (acao === "atualizarProjeto") {
+    return { ok: true, resultado: atualizarProjeto(dados) };
+  }
   return { ok: true, resultado: gravarCusto(dados) };
 }
 
@@ -856,6 +859,108 @@ function excluirProjeto(projetoId, dataRef) {
   });
 
   return { projetoId: id, linhasRemovidas: totalRemovidas };
+}
+
+function buscarIndicesLinhasPorProjeto(sheet, projetoId, dataRef) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var valores = sheet.getDataRange().getValues();
+  var indices = [];
+  for (var i = 1; i < valores.length; i++) {
+    if (String(valores[i][1]) !== String(projetoId)) continue;
+    if (!datasCompativeis(valores[i][0], dataRef)) continue;
+    indices.push(i + 1);
+  }
+  return indices;
+}
+
+function atualizarCamposRelacionadosProjeto(projetoId, dataRef, campos) {
+  var sheetEn = obterAba(ABA_ENERGIA, null, false);
+  if (sheetEn) {
+    buscarIndicesLinhasPorProjeto(sheetEn, projetoId, dataRef).forEach(function (linha) {
+      sheetEn.getRange(linha, 3).setValue(campos.impressora);
+    });
+  }
+
+  var sheetFil = obterAba(ABA_FILAMENTO_CUSTO, null, false);
+  if (sheetFil) {
+    var cabFil = lerCabecalho(sheetFil);
+    var formatoFil = detectarFormatoFilCusto(cabFil);
+    buscarIndicesLinhasPorProjeto(sheetFil, projetoId, dataRef).forEach(function (linha) {
+      if (formatoFil === "slotTempo" || formatoFil === "slot" || formatoFil === "qtd") {
+        sheetFil.getRange(linha, 3).setValue(campos.qtd);
+      }
+      if (formatoFil === "slotTempo") {
+        sheetFil.getRange(linha, 5).setValue(campos.filamento);
+      } else if (formatoFil === "slot") {
+        sheetFil.getRange(linha, 5).setValue(campos.filamento);
+      } else if (formatoFil === "qtd") {
+        sheetFil.getRange(linha, 4).setValue(campos.filamento);
+      } else {
+        sheetFil.getRange(linha, 3).setValue(campos.filamento);
+      }
+    });
+  }
+
+  var sheetVendas = obterAba(ABA_VENDAS, null, false);
+  if (sheetVendas) {
+    var cabV = lerCabecalho(sheetVendas);
+    var idxResp = indiceColuna(cabV, "Responsável Projeto");
+    var idxProj = indiceColuna(cabV, "ID Projeto");
+    if (idxProj < 0) idxProj = 1;
+    if (idxResp < 0) idxResp = 5;
+    var valoresV = sheetVendas.getDataRange().getValues();
+    for (var j = 1; j < valoresV.length; j++) {
+      if (String(valoresV[j][idxProj]) !== String(projetoId)) continue;
+      sheetVendas.getRange(j + 1, idxResp + 1).setValue(campos.responsavelProjeto);
+    }
+  }
+}
+
+function atualizarProjeto(dados) {
+  var id = String(dados.projetoId || "").trim();
+  var dataRef = dados.data;
+  if (!id) throw new Error("ID do projeto obrigatório");
+  if (!dataRef) throw new Error("Data do registro obrigatória");
+
+  var sheet = obterAba(ABA_PROJETOS, null, false);
+  if (!sheet) throw new Error("Aba Projetos não encontrada");
+
+  var indices = buscarIndicesLinhasPorProjeto(sheet, id, dataRef);
+  if (!indices.length) throw new Error("Projeto não encontrado: " + id);
+
+  var linha = indices[0];
+  var cab = lerCabecalho(sheet);
+  var formato = detectarFormatoProjetos(cab);
+  var qtd = Math.max(1, Math.floor(num(dados.quantidadePecas) || 1));
+  var nome = String(dados.nomeObjeto || "");
+  var resp = String(dados.responsavelProjeto || "");
+  var impressora = String(dados.impressora || "");
+  var filamento = String(dados.filamento || "");
+
+  if (formato === "comResp") {
+    sheet.getRange(linha, 3).setValue(qtd);
+    sheet.getRange(linha, 4).setValue(resp);
+    sheet.getRange(linha, 5).setValue(impressora);
+    sheet.getRange(linha, 6).setValue(filamento);
+  } else if (formato === "qtd") {
+    sheet.getRange(linha, 3).setValue(qtd);
+    sheet.getRange(linha, 4).setValue(impressora);
+    sheet.getRange(linha, 5).setValue(filamento);
+  } else {
+    sheet.getRange(linha, 3).setValue(filamento);
+  }
+
+  var idxNome = ensureColunaNomeObjeto(sheet);
+  sheet.getRange(linha, idxNome + 1).setValue(nome);
+
+  atualizarCamposRelacionadosProjeto(id, dataRef, {
+    qtd: qtd,
+    impressora: impressora,
+    filamento: filamento,
+    responsavelProjeto: resp,
+  });
+
+  return { projetoId: id, atualizado: true };
 }
 
 /* -------------------- Gravação -------------------- */
