@@ -332,14 +332,6 @@
     return api().gravar({ action: "definirSaldoCaixa", saldo });
   }
 
-  async function adicionarFilamento(payload) {
-    if (api().isDemo()) {
-      await new Promise((r) => setTimeout(r, 300));
-      return { ok: true, demo: true };
-    }
-    return api().gravar({ action: "adicionarFilamento", ...payload });
-  }
-
   async function preencherProjetosCache() {
     cacheProjetos = ordenarProjetos(await api().fetchProjetos());
     linhasVenda().forEach((linha) => {
@@ -482,33 +474,6 @@
     }
   }
 
-  async function salvarFilamentoNovo() {
-    const material = $("novo-fil-material").value.trim();
-    const valor = Number($("novo-fil-valor").value) || 0;
-    if (!material || valor <= 0) {
-      $("fil-msg").textContent = "Informe nome e valor pago por Kg.";
-      $("fil-msg").className = "save-msg err";
-      return;
-    }
-    try {
-      const resp = await adicionarFilamento({ material, valor });
-      if (resp && resp.ok) {
-        $("novo-fil-material").value = "";
-        $("novo-fil-valor").value = "";
-        $("fil-msg").textContent = resp.demo
-          ? "Filamento simulado (demo)."
-          : "Filamento adicionado à planilha!";
-        $("fil-msg").className = "save-msg ok";
-        if (window.TNJApp && window.TNJApp.recarregarFilamentos) {
-          await window.TNJApp.recarregarFilamentos();
-        }
-      }
-    } catch (e) {
-      $("fil-msg").textContent = "Falha: " + e.message;
-      $("fil-msg").className = "save-msg err";
-    }
-  }
-
   async function carregarVendas() {
     const body = $("vendas-body");
     const info = $("vendas-info");
@@ -648,7 +613,6 @@
     $("saida-valor")?.addEventListener("input", atualizarDetalhesCartaoSaida);
     $("btn-registrar-venda")?.addEventListener("click", registrarVenda);
     $("btn-registrar-saida")?.addEventListener("click", registrarSaida);
-    $("btn-salvar-filamento")?.addEventListener("click", salvarFilamentoNovo);
     $("btn-toggle-caixa")?.addEventListener("click", toggleCaixa);
     $("btn-salvar-caixa")?.addEventListener("click", salvarCaixa);
     $("btn-recarregar-vendas")?.addEventListener("click", async () => {

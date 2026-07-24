@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=24" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=25" />
   </head>
   <body>
     <header class="topbar">
@@ -270,6 +270,24 @@
           <button id="btn-salvar-filamento" class="btn btn-primary">Adicionar à planilha</button>
           <p id="fil-msg" class="save-msg"></p>
         </div>
+
+        <div class="card" style="margin-top:16px">
+          <h2>Filamentos cadastrados</h2>
+          <p class="muted" id="filamentos-info"></p>
+          <div class="table-wrap">
+            <table class="projetos filamentos-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Valor (R$/Kg)</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="filamentos-body"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- CONFIG -->
@@ -299,10 +317,11 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=24"></script>
-    <script src="assets/js/config.js?v=24"></script>
-    <script src="assets/js/app.js?v=24"></script>
-    <script src="assets/js/vendas.js?v=24"></script>
-    <script src="assets/js/estoque.js?v=24"></script>
+    <script src="assets/js/calc.js?v=25"></script>
+    <script src="assets/js/config.js?v=25"></script>
+    <script src="assets/js/app.js?v=25"></script>
+    <script src="assets/js/vendas.js?v=25"></script>
+    <script src="assets/js/filamentos.js?v=25"></script>
+    <script src="assets/js/estoque.js?v=25"></script>
   </body>
 </html>

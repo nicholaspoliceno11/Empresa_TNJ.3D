@@ -148,13 +148,23 @@
   };
 
   function optionsFilamentos(sel) {
+    if (!sel) return;
+    const valorAtual = sel.value;
     sel.innerHTML = "";
     filamentos.forEach((f, i) => {
+      if (f.ativo === false) return;
       const o = document.createElement("option");
       o.value = String(i);
       o.textContent = `${f.material} — ${brl(f.valor)}/Kg`;
       sel.appendChild(o);
     });
+    if (valorAtual && sel.querySelector(`option[value="${valorAtual}"]`)) {
+      sel.value = valorAtual;
+    } else if (sel.options.length) {
+      sel.selectedIndex = 0;
+      const slot = sel.closest(".fil-slot");
+      if (slot) onFilSelect(slot);
+    }
   }
 
   function criarFilamentoSlot(index, checked) {
@@ -558,10 +568,24 @@
   }
 
   async function fetchFilamentos() {
-    if (DEMO) return cfg.FILAMENTOS_DEMO.slice();
+    if (DEMO) {
+      if (window.TNJFilamentos && window.TNJFilamentos.getDemoFilamentos) {
+        return window.TNJFilamentos.getDemoFilamentos().slice();
+      }
+      return (cfg.FILAMENTOS_DEMO || []).map((f) => ({
+        material: f.material,
+        valor: f.valor,
+        ativo: true,
+        status: "Ativo",
+      }));
+    }
     const data = await apiJsonp("filamentos");
     if (!data.ok) throw new Error(data.error);
-    return data.filamentos;
+    return (data.filamentos || []).map((f) => ({
+      ...f,
+      status: f.status || (f.ativo === false ? "Esgotado" : "Ativo"),
+      ativo: f.ativo !== false && f.status !== "Esgotado",
+    }));
   }
 
   async function recarregarFilamentos() {
@@ -891,6 +915,7 @@
         if (v === "calculadora") preencherSelectReutilizar();
         if (v === "projetos") carregarProjetos();
         if (v === "vendas" && window.TNJVendas) window.TNJVendas.onShowVendas();
+        if (v === "filamentos" && window.TNJFilamentos) window.TNJFilamentos.onShowFilamentos();
         if (v === "estoque" && window.TNJEstoque) window.TNJEstoque.onShowEstoque();
       });
     });
@@ -944,6 +969,7 @@
     initTabs();
     initConfig();
     if (window.TNJVendas) window.TNJVendas.initVendas();
+    if (window.TNJFilamentos) window.TNJFilamentos.initFilamentos();
     if (window.TNJEstoque) window.TNJEstoque.initEstoque();
 
     ["consumoW", "valorKwh", "maoDeObra", "taxaManutencao", "insumos"].forEach((id) =>
@@ -983,7 +1009,12 @@
       if (!DEMO) setConn("ok", "conectado");
       await preencherSelectReutilizar();
     } catch {
-      filamentos = cfg.FILAMENTOS_DEMO.slice();
+      filamentos = cfg.FILAMENTOS_DEMO.map((f) => ({
+        material: f.material,
+        valor: f.valor,
+        ativo: true,
+        status: "Ativo",
+      }));
       document.querySelectorAll(".fil-select").forEach((sel) => optionsFilamentos(sel));
       setConn("err", "API indisponível");
     }

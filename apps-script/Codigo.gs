@@ -142,6 +142,15 @@ function processarGravar(dados) {
   if (acao === "atualizarProjeto") {
     return { ok: true, resultado: atualizarProjeto(dados) };
   }
+  if (acao === "atualizarFilamento") {
+    return { ok: true, resultado: atualizarFilamento(dados) };
+  }
+  if (acao === "excluirFilamento") {
+    return { ok: true, resultado: excluirFilamento(dados) };
+  }
+  if (acao === "alterarStatusFilamento") {
+    return { ok: true, resultado: alterarStatusFilamento(dados) };
+  }
   return { ok: true, resultado: gravarCusto(dados) };
 }
 
@@ -157,16 +166,35 @@ function parsePayload(e) {
 
 /* -------------------- Leitura -------------------- */
 function lerFilamentos() {
-  var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
+  var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD", "Status"]);
+  ensureColunasFilamentos(sheet);
   var valores = sheet.getDataRange().getValues();
+  var cab = valores[0] || [];
+  var idxStatus = indiceColuna(cab, "Status");
   var lista = [];
   for (var i = 1; i < valores.length; i++) {
     var material = valores[i][0];
     var valor = valores[i][1];
     if (material === "" || material === null) continue;
-    lista.push({ material: String(material), valor: Number(valor) || 0 });
+    var status = idxStatus >= 0 ? String(valores[i][idxStatus] || "").trim() : "";
+    var ativo = status !== "Esgotado";
+    lista.push({
+      linha: i + 1,
+      material: String(material),
+      valor: Number(valor) || 0,
+      qtd: Number(valores[i][2]) || 1,
+      status: ativo ? "Ativo" : "Esgotado",
+      ativo: ativo,
+    });
   }
   return lista;
+}
+
+function ensureColunasFilamentos(sheet) {
+  var cab = lerCabecalho(sheet);
+  if (indiceColuna(cab, "Status") >= 0) return;
+  var col = cab.length + 1;
+  sheet.getRange(1, col).setValue("Status").setFontWeight("bold");
 }
 
 function detectarFormatoProjetos(cab) {
@@ -1321,15 +1349,62 @@ function adicionarFilamento(p) {
   if (!material) throw new Error("Nome do material obrigatório");
   var valor = num(p.valor);
   if (valor <= 0) throw new Error("Valor inválido");
-  var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD"]);
-  sheet.appendRow([material, valor, 1]);
-  return { material: material, valor: valor };
+  var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD", "Status"]);
+  ensureColunasFilamentos(sheet);
+  var cab = lerCabecalho(sheet);
+  var dados = {
+    "Material": material,
+    "Valor": valor,
+    "QTD": 1,
+    "Status": "Ativo",
+  };
+  sheet.appendRow(montarLinhaPorCabecalho(cab, dados));
+  return { material: material, valor: valor, status: "Ativo", ativo: true };
+}
+
+function atualizarFilamento(p) {
+  var linha = Math.floor(num(p.linha));
+  if (linha < 2) throw new Error("Linha inválida");
+  var material = String(p.material || "").trim();
+  if (!material) throw new Error("Nome do material obrigatório");
+  var valor = num(p.valor);
+  if (valor <= 0) throw new Error("Valor inválido");
+  var sheet = obterAba(ABA_FILAMENTOS, null, false);
+  if (!sheet || linha > sheet.getLastRow()) throw new Error("Filamento não encontrado");
+  sheet.getRange(linha, 1).setValue(material);
+  sheet.getRange(linha, 2).setValue(valor);
+  return { linha: linha, material: material, valor: valor };
+}
+
+function excluirFilamento(p) {
+  var linha = Math.floor(num(p.linha));
+  if (linha < 2) throw new Error("Linha inválida");
+  var sheet = obterAba(ABA_FILAMENTOS, null, false);
+  if (!sheet || linha > sheet.getLastRow()) throw new Error("Filamento não encontrado");
+  var material = String(sheet.getRange(linha, 1).getValue() || "");
+  sheet.deleteRow(linha);
+  return { linha: linha, material: material };
+}
+
+function alterarStatusFilamento(p) {
+  var linha = Math.floor(num(p.linha));
+  if (linha < 2) throw new Error("Linha inválida");
+  var esgotado = p.esgotado === true || String(p.status || "").toLowerCase() === "esgotado";
+  var sheet = ensureSheet(ABA_FILAMENTOS, ["Material", "Valor", "QTD", "Status"]);
+  ensureColunasFilamentos(sheet);
+  var cab = lerCabecalho(sheet);
+  var idxStatus = indiceColuna(cab, "Status");
+  if (idxStatus < 0) throw new Error("Coluna Status ausente");
+  if (linha > sheet.getLastRow()) throw new Error("Filamento não encontrado");
+  var status = esgotado ? "Esgotado" : "Ativo";
+  sheet.getRange(linha, idxStatus + 1).setValue(status);
+  return { linha: linha, status: status, ativo: !esgotado };
 }
 
 function inicializarAbas() {
   var criadas = [];
   var abas = [
-    [ABA_FILAMENTOS, ["Material", "Valor", "QTD"]],
+    [ABA_FILAMENTOS, ["Material", "Valor", "QTD", "Status"]],
     [ABA_PROJETOS, CABECALHO_PROJETOS],
     [ABA_FILAMENTO_CUSTO, CABECALHO_FIL_CUSTO],
     [ABA_ENERGIA, ["Data", "ID", "Impressora", "Consumo (W)", "Tempo (h)", "kWh", "Custo"]],
