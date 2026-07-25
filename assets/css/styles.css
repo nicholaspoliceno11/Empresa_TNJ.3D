@@ -488,6 +488,9 @@ tr.projeto-em-edicao td:last-child {
   color: var(--muted);
   font-size: 13px;
 }
+#site-version {
+  opacity: 0.75;
+}
 .badge {
   border: 1px solid var(--line);
   border-radius: 999px;
