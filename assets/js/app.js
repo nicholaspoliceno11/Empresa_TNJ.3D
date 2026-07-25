@@ -35,6 +35,18 @@
   let filamentos = [];
   let custosReutilizados = null;
   let filamentoResumoReuse = "";
+  let listaProjetosCompleta = [];
+
+  function projetoCombinaBusca(p, termo) {
+    const t = String(termo || "")
+      .trim()
+      .toLowerCase();
+    if (!t) return true;
+    const nome = String(p.nomeObjeto || "").toLowerCase();
+    const id = String(p.projetoId || "").toLowerCase();
+    const fil = String(p.filamento || "").toLowerCase();
+    return nome.includes(t) || id.includes(t) || fil.includes(t);
+  }
 
   const $ = (id) => document.getElementById(id);
   const brl = (n) =>
@@ -825,76 +837,91 @@
       return;
     }
     try {
-      const lista = await apiJsonp("projetos").then((d) => d.projetos || []);
-      $("projetos-body").innerHTML = "";
-      const soma = {
-        filamento: 0,
-        energia: 0,
-        maoDeObra: 0,
-        manut: 0,
-        insumos: 0,
-        total: 0,
-      };
-      lista.forEach((p) => {
-        soma.filamento += Number(p.custoFilamento) || 0;
-        soma.energia += Number(p.custoEnergia) || 0;
-        soma.maoDeObra += Number(p.maoDeObra) || 0;
-        soma.manut += Number(p.custosFixos) || 0;
-        soma.insumos += Number(p.insumos) || 0;
-        soma.total += Number(p.custoTotal) || 0;
-        const tr = document.createElement("tr");
-        tr.innerHTML = [
-          `<td class="proj-col-data">${p.data}</td>`,
-          `<td class="proj-col-id">${p.projetoId}</td>`,
-          `<td class="proj-col-nome">${p.nomeObjeto || "—"}</td>`,
-          `<td class="proj-col-qtd">${p.quantidadePecas || 1}</td>`,
-          `<td class="proj-col-resp">${p.responsavelProjeto || ""}</td>`,
-          `<td class="proj-col-impressora">${p.impressora || ""}</td>`,
-          `<td class="proj-col-filamento">${p.filamento || ""}</td>`,
-          brl(p.custoFilamento), brl(p.custoEnergia), brl(p.maoDeObra),
-          brl(p.custosFixos), brl(p.insumos), brl(p.custoTotal),
-          (p.margem || 0) + "%", brl(p.precoSugeridoUnit ?? p.precoSugerido),
-        ].map((c) => (String(c).startsWith("<td") ? c : `<td>${c}</td>`)).join("");
-        const tdAcoes = document.createElement("td");
-        tdAcoes.className = "td-acoes";
-        const btnEditar = document.createElement("button");
-        btnEditar.type = "button";
-        btnEditar.className = "btn-editar-projeto";
-        btnEditar.title = "Editar projeto";
-        btnEditar.textContent = "Editar";
-        btnEditar.addEventListener("click", () => entrarEdicaoProjeto(tr, p));
-        const btnExcluir = document.createElement("button");
-        btnExcluir.type = "button";
-        btnExcluir.className = "btn-excluir-projeto";
-        btnExcluir.title = "Excluir projeto";
-        btnExcluir.textContent = "Excluir";
-        btnExcluir.addEventListener("click", () => {
-          excluirProjeto(p.projetoId, p.data, p.nomeObjeto || "");
-        });
-        tdAcoes.appendChild(btnEditar);
-        tdAcoes.appendChild(btnExcluir);
-        tr.appendChild(tdAcoes);
-        $("projetos-body").appendChild(tr);
-      });
-      if (totaisBox) {
-        if (lista.length) {
-          totaisBox.hidden = false;
-          totaisBox.innerHTML = `
-            <div class="fin-card"><small>Total Filamento</small><b>${brl(soma.filamento)}</b></div>
-            <div class="fin-card"><small>Total Energia</small><b>${brl(soma.energia)}</b></div>
-            <div class="fin-card"><small>Total M.O.</small><b>${brl(soma.maoDeObra)}</b></div>
-            <div class="fin-card"><small>Total Manut.</small><b>${brl(soma.manut)}</b></div>
-            <div class="fin-card"><small>Total Insumos</small><b>${brl(soma.insumos)}</b></div>
-            <div class="fin-card highlight"><small>Custo total (todos)</small><b>${brl(soma.total)}</b></div>`;
-        } else {
-          totaisBox.hidden = true;
-          totaisBox.innerHTML = "";
-        }
-      }
-      info.textContent = lista.length ? `${lista.length} projeto(s).` : "Nenhum projeto.";
+      listaProjetosCompleta = await apiJsonp("projetos").then((d) => d.projetos || []);
+      renderizarTabelaProjetos();
     } catch (e) {
       info.textContent = "Erro: " + e.message;
       if (totaisBox) totaisBox.hidden = true;
+    }
+  }
+
+  function renderizarTabelaProjetos() {
+    const info = $("projetos-info");
+    const totaisBox = $("projetos-totais");
+    const termo = $("projetos-busca")?.value || "";
+    const lista = listaProjetosCompleta.filter((p) => projetoCombinaBusca(p, termo));
+    $("projetos-body").innerHTML = "";
+    const soma = {
+      filamento: 0,
+      energia: 0,
+      maoDeObra: 0,
+      manut: 0,
+      insumos: 0,
+      total: 0,
+    };
+    lista.forEach((p) => {
+      soma.filamento += Number(p.custoFilamento) || 0;
+      soma.energia += Number(p.custoEnergia) || 0;
+      soma.maoDeObra += Number(p.maoDeObra) || 0;
+      soma.manut += Number(p.custosFixos) || 0;
+      soma.insumos += Number(p.insumos) || 0;
+      soma.total += Number(p.custoTotal) || 0;
+      const tr = document.createElement("tr");
+      tr.innerHTML = [
+        `<td class="proj-col-data">${p.data}</td>`,
+        `<td class="proj-col-id">${p.projetoId}</td>`,
+        `<td class="proj-col-nome">${p.nomeObjeto || "—"}</td>`,
+        `<td class="proj-col-qtd">${p.quantidadePecas || 1}</td>`,
+        `<td class="proj-col-resp">${p.responsavelProjeto || ""}</td>`,
+        `<td class="proj-col-impressora">${p.impressora || ""}</td>`,
+        `<td class="proj-col-filamento">${p.filamento || ""}</td>`,
+        brl(p.custoFilamento), brl(p.custoEnergia), brl(p.maoDeObra),
+        brl(p.custosFixos), brl(p.insumos), brl(p.custoTotal),
+        (p.margem || 0) + "%", brl(p.precoSugeridoUnit ?? p.precoSugerido),
+      ].map((c) => (String(c).startsWith("<td") ? c : `<td>${c}</td>`)).join("");
+      const tdAcoes = document.createElement("td");
+      tdAcoes.className = "td-acoes";
+      const btnEditar = document.createElement("button");
+      btnEditar.type = "button";
+      btnEditar.className = "btn-editar-projeto";
+      btnEditar.title = "Editar projeto";
+      btnEditar.textContent = "Editar";
+      btnEditar.addEventListener("click", () => entrarEdicaoProjeto(tr, p));
+      const btnExcluir = document.createElement("button");
+      btnExcluir.type = "button";
+      btnExcluir.className = "btn-excluir-projeto";
+      btnExcluir.title = "Excluir projeto";
+      btnExcluir.textContent = "Excluir";
+      btnExcluir.addEventListener("click", () => {
+        excluirProjeto(p.projetoId, p.data, p.nomeObjeto || "");
+      });
+      tdAcoes.appendChild(btnEditar);
+      tdAcoes.appendChild(btnExcluir);
+      tr.appendChild(tdAcoes);
+      $("projetos-body").appendChild(tr);
+    });
+    if (totaisBox) {
+      if (lista.length) {
+        totaisBox.hidden = false;
+        totaisBox.innerHTML = `
+          <div class="fin-card"><small>Total Filamento</small><b>${brl(soma.filamento)}</b></div>
+          <div class="fin-card"><small>Total Energia</small><b>${brl(soma.energia)}</b></div>
+          <div class="fin-card"><small>Total M.O.</small><b>${brl(soma.maoDeObra)}</b></div>
+          <div class="fin-card"><small>Total Manut.</small><b>${brl(soma.manut)}</b></div>
+          <div class="fin-card"><small>Total Insumos</small><b>${brl(soma.insumos)}</b></div>
+          <div class="fin-card highlight"><small>Custo total (todos)</small><b>${brl(soma.total)}</b></div>`;
+      } else {
+        totaisBox.hidden = true;
+        totaisBox.innerHTML = "";
+      }
+    }
+    const total = listaProjetosCompleta.length;
+    if (!total) {
+      info.textContent = "Nenhum projeto.";
+    } else if (termo.trim()) {
+      info.textContent = `${lista.length} de ${total} projeto(s) encontrado(s).`;
+    } else {
+      info.textContent = `${total} projeto(s).`;
     }
   }
 
@@ -981,6 +1008,7 @@
     ["margem", "qtdPecas"].forEach((id) => $(id).addEventListener("input", recalcular));
     $("btn-criar").addEventListener("click", criarCusto);
     $("btn-recarregar").addEventListener("click", carregarProjetos);
+    $("projetos-busca")?.addEventListener("input", renderizarTabelaProjetos);
     $("reutilizar-projeto")?.addEventListener("change", aoSelecionarProjetoAnterior);
     $("btn-conectar")?.addEventListener("click", conectarApi);
     $("btn-desconectar")?.addEventListener("click", () => {

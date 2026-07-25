@@ -729,6 +729,24 @@ tr.projeto-em-edicao td:last-child {
   color: var(--brand-2);
   margin-top: 8px;
 }
+.busca-projeto {
+  width: 100%;
+  margin-bottom: 12px;
+  background: #0f1420;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.busca-projeto:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.15);
+  outline: none;
+}
+#view-projetos .busca-projeto {
+  margin-top: 4px;
+}
 .cartao-detalhes {
   background: var(--panel-2);
   border: 1px solid var(--line);

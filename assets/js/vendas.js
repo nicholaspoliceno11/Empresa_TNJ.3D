@@ -12,6 +12,36 @@
   let caixaVisivel = false;
   let ajusteVendaOrigem = null;
 
+  function projetoCombinaBusca(p, termo) {
+    const t = String(termo || "")
+      .trim()
+      .toLowerCase();
+    if (!t) return true;
+    const nome = String(p.nomeObjeto || "").toLowerCase();
+    const id = String(p.projetoId || "").toLowerCase();
+    const fil = String(p.filamento || "").toLowerCase();
+    return nome.includes(t) || id.includes(t) || fil.includes(t);
+  }
+
+  function projetosFiltradosVenda(selecionado) {
+    const termo = $("venda-busca-projeto")?.value || "";
+    let lista = cacheProjetos.filter((p) => projetoCombinaBusca(p, termo));
+    if (selecionado && !lista.some((p) => p.projetoId === selecionado)) {
+      const atual = cacheProjetos.find((p) => p.projetoId === selecionado);
+      if (atual) lista = [atual, ...lista];
+    }
+    return lista;
+  }
+
+  function atualizarSelectsVendaProjeto() {
+    linhasVenda().forEach((linha) => {
+      const sel = linha.querySelector(".venda-item-projeto");
+      if (!sel) return;
+      const atual = sel.value;
+      sel.innerHTML = optionsHtmlProjetos(atual);
+    });
+  }
+
   function round2(n) {
     return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
   }
@@ -248,7 +278,7 @@
 
   function optionsHtmlProjetos(selecionado) {
     let html = '<option value="">— Selecione o projeto —</option>';
-    cacheProjetos.forEach((p) => {
+    projetosFiltradosVenda(selecionado).forEach((p) => {
       const precoUnit = precoUnitarioProjeto(p);
       const custoUnit = custoUnitarioProjeto(p);
       const sel = p.projetoId === selecionado ? " selected" : "";
@@ -430,11 +460,7 @@
 
   async function preencherProjetosCache() {
     cacheProjetos = ordenarProjetos(await api().fetchProjetos());
-    linhasVenda().forEach((linha) => {
-      const sel = linha.querySelector(".venda-item-projeto");
-      const atual = sel.value;
-      sel.innerHTML = optionsHtmlProjetos(atual);
-    });
+    atualizarSelectsVendaProjeto();
   }
 
   async function registrarVenda() {
@@ -699,6 +725,7 @@
     preencherOptsParcelas($("saida-parcelas"));
 
     renderItensVenda();
+    $("venda-busca-projeto")?.addEventListener("input", atualizarSelectsVendaProjeto);
     $("btn-add-venda-item")?.addEventListener("click", adicionarLinhaVenda);
     $("venda-desconto")?.addEventListener("input", () => sincronizarAjusteVenda("desconto-rs"));
     $("venda-desconto-pct")?.addEventListener("input", () => sincronizarAjusteVenda("desconto-pct"));
