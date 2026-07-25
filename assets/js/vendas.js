@@ -11,6 +11,7 @@
   let cacheProjetos = [];
   let caixaVisivel = false;
   let ajusteVendaOrigem = null;
+  let linhaVendaAtiva = null;
 
   function projetoCombinaBusca(p, termo) {
     const t = String(termo || "")
@@ -40,6 +41,83 @@
       const atual = sel.value;
       sel.innerHTML = optionsHtmlProjetos(atual);
     });
+  }
+
+  function linhaVendaAlvo() {
+    if (linhaVendaAtiva && document.contains(linhaVendaAtiva)) return linhaVendaAtiva;
+    const linhas = linhasVenda();
+    const vazia = linhas.find((l) => !l.querySelector(".venda-item-projeto")?.value);
+    return vazia || linhas[0] || null;
+  }
+
+  function marcarLinhaVendaAtiva(linha) {
+    linhaVendaAtiva = linha;
+    linhasVenda().forEach((l) => l.classList.toggle("venda-item-ativa", l === linha));
+  }
+
+  function selecionarProjetoNaLinha(linha, projetoId) {
+    const sel = linha.querySelector(".venda-item-projeto");
+    if (!sel) return;
+    sel.innerHTML = optionsHtmlProjetos(projetoId);
+    sel.value = projetoId;
+    marcarLinhaVendaAtiva(linha);
+    aoSelecionarProjetoLinha(linha);
+  }
+
+  function renderBuscaVendaResultados() {
+    const box = $("venda-busca-resultados");
+    if (!box) return;
+    const termo = ($("venda-busca-projeto")?.value || "").trim();
+    if (!termo) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    if (!cacheProjetos.length) {
+      box.hidden = false;
+      box.innerHTML = '<p class="muted field-hint">Carregando projetos…</p>';
+      return;
+    }
+    const todos = cacheProjetos.filter((p) => projetoCombinaBusca(p, termo));
+    const lista = todos.slice(0, 20);
+    if (!lista.length) {
+      box.hidden = false;
+      box.innerHTML = '<p class="muted field-hint">Nenhum projeto encontrado para "' + termo + '".</p>';
+      return;
+    }
+    box.hidden = false;
+    box.innerHTML = "";
+    const ul = document.createElement("ul");
+    ul.className = "venda-busca-lista";
+    lista.forEach((p) => {
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "venda-busca-item";
+      const preco = precoUnitarioProjeto(p);
+      btn.textContent = `${rotuloProjeto(p)} — ${p.projetoId} · ${brl(preco)}/peça`;
+      btn.addEventListener("click", () => {
+        const linha = linhaVendaAlvo();
+        if (linha) selecionarProjetoNaLinha(linha, p.projetoId);
+        if ($("venda-busca-projeto")) $("venda-busca-projeto").value = "";
+        atualizarBuscaVenda();
+      });
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    const info = document.createElement("p");
+    info.className = "muted field-hint";
+    info.textContent =
+      todos.length > 20
+        ? `${todos.length} encontrado(s). Mostrando os 20 primeiros — clique para selecionar.`
+        : `${todos.length} encontrado(s). Clique para selecionar no projeto destacado.`;
+    box.appendChild(info);
+  }
+
+  function atualizarBuscaVenda() {
+    atualizarSelectsVendaProjeto();
+    renderBuscaVendaResultados();
   }
 
   function round2(n) {
@@ -309,6 +387,8 @@
       </div>`;
     const sel = div.querySelector(".venda-item-projeto");
     sel.addEventListener("change", () => aoSelecionarProjetoLinha(div));
+    sel.addEventListener("focus", () => marcarLinhaVendaAtiva(div));
+    div.addEventListener("click", () => marcarLinhaVendaAtiva(div));
     div.querySelector(".venda-item-valor")?.addEventListener("input", atualizarPreviewVenda);
     div.querySelector(".venda-item-qtd")?.addEventListener("input", atualizarPreviewVenda);
     div.querySelector(".btn-remover-item")?.addEventListener("click", () => {
@@ -395,7 +475,9 @@
     const box = $("venda-itens");
     if (!box) return;
     if (!linhasVenda().length) {
-      box.appendChild(criarLinhaVenda());
+      const linha = criarLinhaVenda();
+      box.appendChild(linha);
+      marcarLinhaVendaAtiva(linha);
     }
   }
 
@@ -460,7 +542,7 @@
 
   async function preencherProjetosCache() {
     cacheProjetos = ordenarProjetos(await api().fetchProjetos());
-    atualizarSelectsVendaProjeto();
+    atualizarBuscaVenda();
   }
 
   async function registrarVenda() {
@@ -725,7 +807,8 @@
     preencherOptsParcelas($("saida-parcelas"));
 
     renderItensVenda();
-    $("venda-busca-projeto")?.addEventListener("input", atualizarSelectsVendaProjeto);
+    $("venda-busca-projeto")?.addEventListener("input", atualizarBuscaVenda);
+    $("venda-busca-projeto")?.addEventListener("focus", renderBuscaVendaResultados);
     $("btn-add-venda-item")?.addEventListener("click", adicionarLinhaVenda);
     $("venda-desconto")?.addEventListener("input", () => sincronizarAjusteVenda("desconto-rs"));
     $("venda-desconto-pct")?.addEventListener("input", () => sincronizarAjusteVenda("desconto-pct"));

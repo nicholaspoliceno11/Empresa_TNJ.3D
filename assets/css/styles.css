@@ -747,6 +747,41 @@ tr.projeto-em-edicao td:last-child {
 #view-projetos .busca-projeto {
   margin-top: 4px;
 }
+.venda-busca-resultados {
+  margin: -4px 0 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.venda-busca-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.venda-busca-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.venda-busca-item:hover {
+  background: rgba(255, 122, 24, 0.12);
+  color: var(--brand-2);
+}
+.venda-item-ativa {
+  border-color: rgba(255, 122, 24, 0.55) !important;
+  box-shadow: 0 0 0 1px rgba(255, 122, 24, 0.25);
+}
 .cartao-detalhes {
   background: var(--panel-2);
   border: 1px solid var(--line);

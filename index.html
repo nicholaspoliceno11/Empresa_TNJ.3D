@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=29" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=30" />
   </head>
   <body>
     <header class="topbar">
@@ -157,6 +157,7 @@
             <p class="muted field-hint">Adicione um ou mais projetos na mesma venda.</p>
             <label for="venda-busca-projeto">Pesquisar projeto</label>
             <input id="venda-busca-projeto" type="search" class="busca-projeto" placeholder="Nome, ID ou filamento…" autocomplete="off" />
+            <div id="venda-busca-resultados" class="venda-busca-resultados" hidden></div>
             <div id="venda-itens"></div>
             <button type="button" id="btn-add-venda-item" class="btn btn-add-item">+ Adicionar projeto</button>
             <p id="venda-subtotal-preview" class="muted field-hint">Subtotal: R$ 0,00</p>
@@ -338,16 +339,16 @@
     </main>
 
     <footer class="foot">
-      <span>TNJ.3D · Gestão &amp; Calculadora de Custos · <small id="site-version">v29</small></span>
+      <span>TNJ.3D · Gestão &amp; Calculadora de Custos · <small id="site-version">v30</small></span>
       <span id="mode-badge" class="badge">—</span>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=29"></script>
-    <script src="assets/js/config.js?v=29"></script>
-    <script src="assets/js/app.js?v=29"></script>
-    <script src="assets/js/vendas.js?v=29"></script>
-    <script src="assets/js/filamentos.js?v=29"></script>
-    <script src="assets/js/estoque.js?v=29"></script>
+    <script src="assets/js/calc.js?v=30"></script>
+    <script src="assets/js/config.js?v=30"></script>
+    <script src="assets/js/app.js?v=30"></script>
+    <script src="assets/js/vendas.js?v=30"></script>
+    <script src="assets/js/filamentos.js?v=30"></script>
+    <script src="assets/js/estoque.js?v=30"></script>
   </body>
 </html>
