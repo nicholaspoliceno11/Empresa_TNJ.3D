@@ -718,7 +718,12 @@ tr.projeto-em-edicao td:last-child {
   cursor: pointer;
   padding: 0 4px;
 }
-.venda-item .row {
+.venda-ajuste-row {
+  margin: 4px 0 12px;
+}
+.venda-resumo-total {
+  font-weight: 600;
+  color: var(--brand-2);
   margin-top: 8px;
 }
 .cartao-detalhes {

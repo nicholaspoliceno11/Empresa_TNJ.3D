@@ -10,6 +10,89 @@
   let chartVendas = null;
   let cacheProjetos = [];
   let caixaVisivel = false;
+  let ajusteVendaOrigem = null;
+
+  function round2(n) {
+    return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  }
+
+  function brutoVenda() {
+    return lerItensVenda().reduce((s, i) => s + i.bruto, 0);
+  }
+
+  function lerAjustesVenda() {
+    const bruto = brutoVenda();
+    const desconto = Math.min(bruto, Math.max(0, Number($("venda-desconto")?.value) || 0));
+    const acrescimo = Math.max(0, Number($("venda-acrescimo")?.value) || 0);
+    const total = Math.max(0, round2(bruto - desconto + acrescimo));
+    const descontoPct = bruto > 0 ? round2((desconto / bruto) * 100) : 0;
+    const acrescimoPct = bruto > 0 ? round2((acrescimo / bruto) * 100) : 0;
+    return { bruto, desconto, acrescimo, total, descontoPct, acrescimoPct };
+  }
+
+  function sincronizarAjusteVenda(origem) {
+    if (ajusteVendaOrigem) return;
+    ajusteVendaOrigem = origem;
+    const bruto = brutoVenda();
+
+    if (origem === "desconto-rs") {
+      const desconto = Math.min(bruto, Math.max(0, Number($("venda-desconto")?.value) || 0));
+      if ($("venda-desconto")) $("venda-desconto").value = desconto.toFixed(2);
+      if ($("venda-desconto-pct")) {
+        $("venda-desconto-pct").value = bruto > 0 ? round2((desconto / bruto) * 100).toFixed(2) : "0";
+      }
+    } else if (origem === "desconto-pct") {
+      const pct = Math.max(0, Math.min(100, Number($("venda-desconto-pct")?.value) || 0));
+      const desconto = round2((bruto * pct) / 100);
+      if ($("venda-desconto")) $("venda-desconto").value = desconto.toFixed(2);
+    } else if (origem === "acrescimo-rs") {
+      const acrescimo = Math.max(0, Number($("venda-acrescimo")?.value) || 0);
+      if ($("venda-acrescimo")) $("venda-acrescimo").value = acrescimo.toFixed(2);
+      if ($("venda-acrescimo-pct")) {
+        $("venda-acrescimo-pct").value = bruto > 0 ? round2((acrescimo / bruto) * 100).toFixed(2) : "0";
+      }
+    } else if (origem === "acrescimo-pct") {
+      const pct = Math.max(0, Number($("venda-acrescimo-pct")?.value) || 0);
+      const acrescimo = round2((bruto * pct) / 100);
+      if ($("venda-acrescimo")) $("venda-acrescimo").value = acrescimo.toFixed(2);
+    } else if (origem === "total-final") {
+      const total = Math.max(0, Number($("venda-total-final")?.value) || 0);
+      const diff = round2(total - bruto);
+      if (diff >= 0) {
+        if ($("venda-desconto")) $("venda-desconto").value = "0";
+        if ($("venda-desconto-pct")) $("venda-desconto-pct").value = "0";
+        if ($("venda-acrescimo")) $("venda-acrescimo").value = diff.toFixed(2);
+        if ($("venda-acrescimo-pct")) {
+          $("venda-acrescimo-pct").value = bruto > 0 ? round2((diff / bruto) * 100).toFixed(2) : "0";
+        }
+      } else {
+        const desconto = Math.min(bruto, Math.abs(diff));
+        if ($("venda-desconto")) $("venda-desconto").value = desconto.toFixed(2);
+        if ($("venda-desconto-pct")) {
+          $("venda-desconto-pct").value = bruto > 0 ? round2((desconto / bruto) * 100).toFixed(2) : "0";
+        }
+        if ($("venda-acrescimo")) $("venda-acrescimo").value = "0";
+        if ($("venda-acrescimo-pct")) $("venda-acrescimo-pct").value = "0";
+      }
+    }
+
+    const a = lerAjustesVenda();
+    if (origem !== "total-final" && $("venda-total-final")) {
+      $("venda-total-final").value = a.total.toFixed(2);
+    } else if (origem === "total-final" && $("venda-total-final")) {
+      $("venda-total-final").value = a.total.toFixed(2);
+    }
+
+    ajusteVendaOrigem = null;
+    atualizarPreviewVenda();
+  }
+
+  function limparAjustesVenda() {
+    ["venda-desconto", "venda-desconto-pct", "venda-acrescimo", "venda-acrescimo-pct"].forEach((id) => {
+      if ($(id)) $(id).value = "0";
+    });
+    if ($("venda-total-final")) $("venda-total-final").value = "0";
+  }
 
   function $(id) {
     return document.getElementById(id);
@@ -72,10 +155,7 @@
   }
 
   function totalVendaAtual() {
-    const itens = lerItensVenda();
-    const desconto = Math.max(0, Number($("venda-desconto")?.value) || 0);
-    const bruto = itens.reduce((s, i) => s + i.bruto, 0);
-    return Math.max(0, bruto - desconto);
+    return lerAjustesVenda().total;
   }
 
   function atualizarDetalhesCartaoVenda() {
@@ -247,20 +327,36 @@
 
   function atualizarPreviewVenda() {
     const itens = lerItensVenda();
-    const desconto = Math.max(0, Number($("venda-desconto")?.value) || 0);
-    const bruto = itens.reduce((s, i) => s + i.bruto, 0);
-    const total = Math.max(0, bruto - desconto);
+    const bruto = brutoVenda();
+    if (!ajusteVendaOrigem) {
+      const desconto = Math.min(bruto, Math.max(0, Number($("venda-desconto")?.value) || 0));
+      const acrescimo = Math.max(0, Number($("venda-acrescimo")?.value) || 0);
+      if ($("venda-desconto")) $("venda-desconto").value = desconto.toFixed(2);
+      if ($("venda-acrescimo")) $("venda-acrescimo").value = acrescimo.toFixed(2);
+      if ($("venda-desconto-pct")) {
+        $("venda-desconto-pct").value = bruto > 0 ? round2((desconto / bruto) * 100).toFixed(2) : "0";
+      }
+      if ($("venda-acrescimo-pct")) {
+        $("venda-acrescimo-pct").value = bruto > 0 ? round2((acrescimo / bruto) * 100).toFixed(2) : "0";
+      }
+      if ($("venda-total-final")) {
+        $("venda-total-final").value = Math.max(0, round2(bruto - desconto + acrescimo)).toFixed(2);
+      }
+    }
+    const { desconto, acrescimo, total, descontoPct, acrescimoPct } = lerAjustesVenda();
+    const sub = $("venda-subtotal-preview");
+    if (sub) sub.textContent = `Subtotal: ${brl(bruto)}${itens.length ? ` · ${itens.length} projeto(s)` : ""}`;
     const el = $("venda-total-preview");
     if (!el) return;
-    const qtdProjetos = itens.length;
-    if (desconto > 0) {
-      el.textContent = `Total: ${brl(total)} (${brl(bruto)} − desconto ${brl(desconto)}) · ${qtdProjetos} projeto(s)`;
-    } else if (qtdProjetos > 1) {
-      el.textContent = `Total da venda: ${brl(total)} · ${qtdProjetos} projetos`;
+    if (desconto > 0 || acrescimo > 0) {
+      let detalhe = brl(bruto);
+      if (desconto > 0) detalhe += ` − ${brl(desconto)} (${descontoPct.toFixed(2)}%)`;
+      if (acrescimo > 0) detalhe += ` + ${brl(acrescimo)} (${acrescimoPct.toFixed(2)}%)`;
+      el.textContent = `Total: ${brl(total)} (${detalhe})`;
     } else if (itens.length === 1 && itens[0].quantidadeVenda > 1) {
       el.textContent = `Total: ${brl(total)} (${itens[0].quantidadeVenda} × ${brl(itens[0].valorUnitario)})`;
     } else {
-      el.textContent = `Total da venda: ${brl(total)}`;
+      el.textContent = `Total: ${brl(total)}`;
     }
     atualizarDetalhesCartaoVenda();
   }
@@ -348,9 +444,7 @@
       $("venda-msg").className = "save-msg err";
       return;
     }
-    const desconto = Math.max(0, Number($("venda-desconto").value) || 0);
-    const bruto = itens.reduce((s, i) => s + i.bruto, 0);
-    const total = Math.max(0, bruto - desconto);
+    const { desconto, acrescimo, total } = lerAjustesVenda();
     const cartao = lerDetalhesCartao("venda", total);
     const payload = {
       itens: itens.map((i) => ({
@@ -360,6 +454,7 @@
         custoTotal: i.custoTotal,
       })),
       desconto,
+      acrescimo,
       formaPagamento: $("venda-pagamento").value,
       responsavelVenda: $("venda-responsavel").value,
       observacoes: $("venda-obs").value.trim(),
@@ -378,7 +473,7 @@
           : `Venda registrada!${vid ? " ID: " + vid : ""}`;
         $("venda-msg").className = "save-msg ok";
         $("venda-obs").value = "";
-        $("venda-desconto").value = "0";
+        limparAjustesVenda();
         limparDetalhesCartao("venda");
         atualizarDetalhesCartaoVenda();
         $("venda-itens").innerHTML = "";
@@ -605,7 +700,11 @@
 
     renderItensVenda();
     $("btn-add-venda-item")?.addEventListener("click", adicionarLinhaVenda);
-    $("venda-desconto")?.addEventListener("input", atualizarPreviewVenda);
+    $("venda-desconto")?.addEventListener("input", () => sincronizarAjusteVenda("desconto-rs"));
+    $("venda-desconto-pct")?.addEventListener("input", () => sincronizarAjusteVenda("desconto-pct"));
+    $("venda-acrescimo")?.addEventListener("input", () => sincronizarAjusteVenda("acrescimo-rs"));
+    $("venda-acrescimo-pct")?.addEventListener("input", () => sincronizarAjusteVenda("acrescimo-pct"));
+    $("venda-total-final")?.addEventListener("input", () => sincronizarAjusteVenda("total-final"));
     $("venda-pagamento")?.addEventListener("change", atualizarDetalhesCartaoVenda);
     $("venda-parcelas")?.addEventListener("change", atualizarDetalhesCartaoVenda);
     $("saida-pagamento")?.addEventListener("change", atualizarDetalhesCartaoSaida);

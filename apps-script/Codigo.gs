@@ -1224,6 +1224,7 @@ function gravarVendaMultipla(p) {
   var vendaId = proximoIdVenda();
   var forma = String(p.formaPagamento || "");
   var descontoTotal = Math.max(0, num(p.desconto));
+  var acrescimoTotal = Math.max(0, num(p.acrescimo));
   var itensPayload = p.itens || [];
   var brutoTotal = 0;
   itensPayload.forEach(function (item) {
@@ -1231,7 +1232,7 @@ function gravarVendaMultipla(p) {
     var precoUnit = num(item.valorUnitario) || num(item.valorVenda);
     brutoTotal += precoUnit * qtd;
   });
-  var liquidoTotal = Math.max(0, brutoTotal - descontoTotal);
+  var liquidoTotal = Math.max(0, brutoTotal - descontoTotal + acrescimoTotal);
   var cartaoInfo = detalhesCartaoPayload(p, liquidoTotal);
   var fator = brutoTotal > 0 ? liquidoTotal / brutoTotal : 1;
   var resultados = [];
