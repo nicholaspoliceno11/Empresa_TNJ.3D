@@ -60,6 +60,14 @@
     return formatHorasParaHHMM(hh + mm / 60);
   }
 
+  /** Formata dígitos enquanto o usuário digita (ex.: 417 → 4:17). */
+  function formatarInputHHMMLive(str) {
+    const digits = String(str || "").replace(/\D/g, "").slice(0, 4);
+    if (!digits) return "";
+    if (digits.length <= 2) return digits;
+    return digits.slice(0, -2) + ":" + digits.slice(-2);
+  }
+
   function round2(n) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
   }
@@ -224,6 +232,7 @@
     parseTempoHHMM,
     formatHorasParaHHMM,
     normalizarInputHHMM,
+    formatarInputHHMMLive,
     round2,
     roundMoney,
     arredondarMoeda,

@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=30" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=31" />
   </head>
   <body>
     <header class="topbar">
@@ -39,9 +39,9 @@
             <fieldset>
               <legend>Filamentos</legend>
               <p class="muted field-hint">Marque os filamentos usados. Cada um com quantidade (g/Kg) e tempo de impressão.</p>
-              <label for="tempo-total-impressao">Tempo total de impressão</label>
-              <input id="tempo-total-impressao" type="text" class="input-tempo-hhmm" placeholder="00:00" value="00:00" maxlength="5" inputmode="numeric" />
-              <p class="muted field-hint">Dividido automaticamente entre os filamentos marcados. Ajuste o tempo de cada um manualmente se precisar.</p>
+              <label for="tempo-total-impressao">Tempo total de impressão (HH:MM)</label>
+              <input id="tempo-total-impressao" type="text" class="input-tempo-hhmm" placeholder="00:00" value="00:00" maxlength="5" inputmode="numeric" autocomplete="off" />
+              <p class="muted field-hint">Formato horas:minutos (ex.: 04:17 = 4h 17min). Dividido automaticamente entre os filamentos marcados.</p>
               <div id="filamentos-slots"></div>
               <button type="button" id="btn-add-filamento" class="btn btn-add-item">+ Adicionar filamento</button>
             </fieldset>
@@ -339,16 +339,16 @@
     </main>
 
     <footer class="foot">
-      <span>TNJ.3D · Gestão &amp; Calculadora de Custos · <small id="site-version">v30</small></span>
+      <span>TNJ.3D · Gestão &amp; Calculadora de Custos · <small id="site-version">v31</small></span>
       <span id="mode-badge" class="badge">—</span>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=30"></script>
-    <script src="assets/js/config.js?v=30"></script>
-    <script src="assets/js/app.js?v=30"></script>
-    <script src="assets/js/vendas.js?v=30"></script>
-    <script src="assets/js/filamentos.js?v=30"></script>
-    <script src="assets/js/estoque.js?v=30"></script>
+    <script src="assets/js/calc.js?v=31"></script>
+    <script src="assets/js/config.js?v=31"></script>
+    <script src="assets/js/app.js?v=31"></script>
+    <script src="assets/js/vendas.js?v=31"></script>
+    <script src="assets/js/filamentos.js?v=31"></script>
+    <script src="assets/js/estoque.js?v=31"></script>
   </body>
 </html>

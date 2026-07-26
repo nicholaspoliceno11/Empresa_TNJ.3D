@@ -35,6 +35,7 @@
   let filamentos = [];
   let custosReutilizados = null;
   let filamentoResumoReuse = "";
+  let distribuindoTempo = false;
   let listaProjetosCompleta = [];
 
   function projetoCombinaBusca(p, termo) {
@@ -179,6 +180,32 @@
     }
   }
 
+  function bindInputTempoHHMM(el, onUpdate) {
+    if (!el) return;
+    el.addEventListener("focus", () => el.select());
+    el.addEventListener("input", () => {
+      el.value = Calc.formatarInputHHMMLive(el.value);
+      onUpdate?.("input");
+    });
+    el.addEventListener("blur", () => {
+      el.value = Calc.normalizarInputHHMM(el.value);
+      onUpdate?.("blur");
+    });
+    el.addEventListener("change", () => onUpdate?.("change"));
+  }
+
+  function recalcularTempoTotalFromFilamentos() {
+    const totalEl = $("tempo-total-impressao");
+    if (!totalEl || distribuindoTempo) return;
+    const soma = slotsFilamentoAtivos().reduce(
+      (s, slot) => s + Calc.parseTempoHHMM(slot.querySelector(".fil-tempo").value),
+      0
+    );
+    distribuindoTempo = true;
+    totalEl.value = Calc.formatHorasParaHHMM(soma);
+    distribuindoTempo = false;
+  }
+
   function criarFilamentoSlot(index, checked) {
     const div = document.createElement("div");
     div.className = "fil-slot" + (index > 0 ? " fil-slot-extra" : "");
@@ -197,8 +224,8 @@
           </div></div>
         </div>
         <div class="row">
-          <div><label>Tempo impressão</label>
-            <input class="fil-tempo input-tempo-hhmm" type="text" placeholder="00:00" value="00:00" maxlength="5" inputmode="numeric"/>
+          <div><label>Tempo impressão (HH:MM)</label>
+            <input class="fil-tempo input-tempo-hhmm" type="text" placeholder="00:00" value="00:00" maxlength="5" inputmode="numeric" autocomplete="off"/>
           </div>
         </div>`;
     const sel = div.querySelector(".fil-select");
@@ -207,25 +234,23 @@
       limparReutilizacao();
       onFilSelect(div);
     });
-    div.querySelectorAll("input:not([readonly]),select").forEach((n) =>
+    div.querySelectorAll("input:not([readonly]):not(.fil-tempo),select").forEach((n) =>
       n.addEventListener("input", () => {
         limparReutilizacao();
         recalcular();
       })
     );
     const tempoInput = div.querySelector(".fil-tempo");
-    tempoInput.addEventListener("focus", () => tempoInput.select());
-    tempoInput.addEventListener("blur", () => {
-      tempoInput.value = Calc.normalizarInputHHMM(tempoInput.value);
-    });
-    tempoInput.addEventListener("change", () => {
+    bindInputTempoHHMM(tempoInput, () => {
       div.dataset.tempoManual = "1";
       limparReutilizacao();
+      recalcularTempoTotalFromFilamentos();
       recalcular();
     });
     div.querySelector(".fil-ativo").addEventListener("change", () => {
       limparReutilizacao();
       distribuirTempoFilamentos(true);
+      recalcularTempoTotalFromFilamentos();
       recalcular();
     });
     if (checked) onFilSelect(div);
@@ -260,22 +285,21 @@
     const porSlot = restante / auto.length;
     const hhmm = Calc.formatHorasParaHHMM(porSlot);
 
+    distribuindoTempo = true;
     auto.forEach((slot) => {
       slot.querySelector(".fil-tempo").value = hhmm;
     });
+    distribuindoTempo = false;
   }
 
   function initTempoTotalImpressao() {
     const totalEl = $("tempo-total-impressao");
-    if (!totalEl) return;
-    totalEl.addEventListener("focus", () => totalEl.select());
-    totalEl.addEventListener("blur", () => {
-      totalEl.value = Calc.normalizarInputHHMM(totalEl.value);
-    });
-    totalEl.addEventListener("change", () => {
-      limparReutilizacao();
-      distribuirTempoFilamentos(true);
-      recalcular();
+    bindInputTempoHHMM(totalEl, (tipo) => {
+      if (tipo !== "input") {
+        limparReutilizacao();
+        distribuirTempoFilamentos(true);
+        recalcular();
+      }
     });
   }
 

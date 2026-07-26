@@ -38,6 +38,8 @@ test("tempo HH:MM converte para horas decimais", () => {
   assert.strictEqual(Calc.formatHorasParaHHMM(1.5), "01:30");
   assert.strictEqual(Calc.horas("03:00", "hhmm"), 3);
   assert.strictEqual(Calc.normalizarInputHHMM("300"), "03:00");
+  assert.strictEqual(Calc.formatarInputHHMMLive("417"), "4:17");
+  assert.strictEqual(Calc.formatarInputHHMMLive("0417"), "04:17");
 });
 
 test("custo do filamento (=preço/1000*g)", () => {
