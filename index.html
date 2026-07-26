@@ -7,7 +7,7 @@
     <title>TNJ.3D — Gestão & Calculadora de Custos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/css/styles.css?v=31" />
+    <link rel="stylesheet" href="assets/css/styles.css?v=32" />
   </head>
   <body>
     <header class="topbar">
@@ -321,10 +321,11 @@
       <section id="view-config" class="view">
         <div class="card setup-card">
           <h2>Conectar à planilha</h2>
-          <div class="setup-alert"><strong>Importante:</strong> Implantar como <strong>Qualquer pessoa</strong>.</div>
+          <div class="setup-alert"><strong>Importante:</strong> Implantar como <strong>Executar como: Eu</strong> e <strong>Qualquer pessoa</strong>.</div>
           <ol class="setup-steps">
             <li>Abra a <a id="link-planilha" href="#">planilha</a> → Extensões → Apps Script</li>
-            <li>Cole <code>apps-script/Codigo.gs</code> → Implantar → Nova versão</li>
+            <li>Cole <code>apps-script/Codigo.gs</code> (com o <code>PLANILHA_ID</code> correto)</li>
+            <li>Implantar → Nova versão → Executar como: <strong>Eu</strong></li>
             <li>Cole a URL <code>/exec</code> abaixo</li>
           </ol>
           <input id="api-url-input" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
@@ -339,16 +340,16 @@
     </main>
 
     <footer class="foot">
-      <span>TNJ.3D · Gestão &amp; Calculadora de Custos · <small id="site-version">v31</small></span>
+      <span>TNJ.3D · Gestão &amp; Calculadora de Custos · <small id="site-version">v32</small></span>
       <span id="mode-badge" class="badge">—</span>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="assets/js/calc.js?v=31"></script>
-    <script src="assets/js/config.js?v=31"></script>
-    <script src="assets/js/app.js?v=31"></script>
-    <script src="assets/js/vendas.js?v=31"></script>
-    <script src="assets/js/filamentos.js?v=31"></script>
-    <script src="assets/js/estoque.js?v=31"></script>
+    <script src="assets/js/calc.js?v=32"></script>
+    <script src="assets/js/config.js?v=32"></script>
+    <script src="assets/js/app.js?v=32"></script>
+    <script src="assets/js/vendas.js?v=32"></script>
+    <script src="assets/js/filamentos.js?v=32"></script>
+    <script src="assets/js/estoque.js?v=32"></script>
   </body>
 </html>

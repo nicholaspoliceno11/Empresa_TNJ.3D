@@ -57,6 +57,20 @@
   const ERRO_CONEXAO =
     'Falha de conexão. Confirme no Apps Script: "Quem tem acesso: Qualquer pessoa" e Nova versão.';
 
+  function formatarErroApi(msg) {
+    const s = String(msg || "");
+    if (/permissão|permission|access|documento solicitado/i.test(s)) {
+      return (
+        "Sem permissão na planilha. Siga estes passos: " +
+        "(1) Abra a planilha → Extensões → Apps Script; " +
+        "(2) cole o Codigo.gs atualizado; " +
+        "(3) Implantar → Gerenciar implantações → editar → Nova versão; " +
+        "(4) Executar como: Eu · Quem tem acesso: Qualquer pessoa."
+      );
+    }
+    return s;
+  }
+
   function apiJsonp(action, extraParams) {
     return new Promise((resolve, reject) => {
       const cb = "_tnjCb" + Date.now();
@@ -716,11 +730,11 @@
         await atualizarProjetoId();
         await preencherSelectReutilizar();
       } else {
-        $("save-msg").textContent = "Erro: " + (resp?.error || "desconhecido");
+        $("save-msg").textContent = "Erro: " + formatarErroApi(resp?.error || "desconhecido");
         $("save-msg").className = "save-msg err";
       }
     } catch (e) {
-      $("save-msg").textContent = "Falha ao salvar: " + e.message;
+      $("save-msg").textContent = "Falha ao salvar: " + formatarErroApi(e.message);
       $("save-msg").className = "save-msg err";
     } finally {
       $("btn-criar").disabled = false;

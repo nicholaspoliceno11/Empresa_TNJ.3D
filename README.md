@@ -52,11 +52,15 @@ A URL fica salva no navegador (localStorage). Ideal para testar antes de publica
 1. Abra a planilha › menu **Extensões › Apps Script**.
 2. Apague o conteúdo padrão e cole o código de [`apps-script/Codigo.gs`](apps-script/Codigo.gs).
 3. Clique em **Implantar › Nova implantação**, escolha o tipo **App da Web**:
-   - **Executar como:** Eu (sua conta)
+   - **Executar como:** Eu (sua conta) — **não** use "Usuário que acessa"
    - **Quem tem acesso:** Qualquer pessoa
 4. Autorize e **copie a URL** que termina em `/exec`.
 5. Cole essa URL em [`assets/js/config.js`](assets/js/config.js), na variável `API_URL`.
 6. Faça commit/push. Pronto: o site passa a ler e gravar na planilha.
+
+> **Erro "sem permissão para acessar o documento"?** O `Codigo.gs` precisa estar no Apps Script
+> **da própria planilha** (Extensões › Apps Script), com `PLANILHA_ID` correto, e uma **Nova versão**
+> da implantação com **Executar como: Eu**.
 
 > A aba `Filamentos` deve ter os cabeçalhos `Material | Valor | QTD` (como já está na sua
 > planilha). As abas de custos são criadas/completadas automaticamente na primeira gravação.

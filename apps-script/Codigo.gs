@@ -23,6 +23,9 @@ var ABA_CAIXA = "Caixa";
 var PREFIXO_PROJETO = "PRJ";
 var PREFIXO_VENDA = "VND";
 
+/** ID da planilha TNJ.3D (mesmo valor de PLANILHA_ID em assets/js/config.js). */
+var PLANILHA_ID = "1IRR33vv1pUYtr87Q6OpktZR3WfPHrXUrv2aOq4o1pAA";
+
 var CABECALHO_PROJETOS = [
   "Data", "ID", "Qtd Peças", "Responsável", "Impressora", "Filamento",
   "Custo Filamento", "Custo Energia", "Mão de Obra", "Custos Fixos", "Insumos",
@@ -1430,7 +1433,23 @@ function inicializarAbas() {
 
 /* -------------------- Utilitários -------------------- */
 function planilha() {
-  return SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    if (PLANILHA_ID) {
+      return SpreadsheetApp.openById(PLANILHA_ID);
+    }
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) {
+      throw new Error("Planilha não vinculada ao script.");
+    }
+    return ss;
+  } catch (e) {
+    throw new Error(
+      "Sem permissão na planilha. Confira: (1) PLANILHA_ID correto em Codigo.gs; " +
+        "(2) Apps Script aberto pela planilha (Extensões › Apps Script); " +
+        "(3) implantação com Executar como: Eu; (4) Nova versão após colar o código. " +
+        "Detalhe: " + e.message
+    );
+  }
 }
 
 function ensureSheet(nome, cabecalho) {
