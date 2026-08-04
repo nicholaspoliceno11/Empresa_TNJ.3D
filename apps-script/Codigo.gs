@@ -1445,8 +1445,8 @@ function planilha() {
   } catch (e) {
     throw new Error(
       "Sem permissão na planilha. Confira: (1) PLANILHA_ID correto em Codigo.gs; " +
-        "(2) Apps Script aberto pela planilha (Extensões › Apps Script); " +
-        "(3) implantação com Executar como: Eu; (4) Nova versão após colar o código. " +
+        "(2) scriptId correto em .clasp.json; " +
+        "(3) npm run apps-script:push; (4) nova implantação com Executar como: Eu. " +
         "Detalhe: " + e.message
     );
   }

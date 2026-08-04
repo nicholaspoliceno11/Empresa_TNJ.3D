@@ -55,16 +55,16 @@
 
   const API_TIMEOUT_MS = 20000;
   const ERRO_CONEXAO =
-    'Falha de conexão. Confirme no Apps Script: "Quem tem acesso: Qualquer pessoa" e Nova versão.';
+    'Falha de conexão. Confirme no Apps Script: "Quem tem acesso: Qualquer pessoa" e nova implantação.';
 
   function formatarErroApi(msg) {
     const s = String(msg || "");
     if (/permissão|permission|access|documento solicitado/i.test(s)) {
       return (
         "Sem permissão na planilha. Siga estes passos: " +
-        "(1) Abra a planilha → Extensões → Apps Script; " +
-        "(2) cole o Codigo.gs atualizado; " +
-        "(3) Implantar → Gerenciar implantações → editar → Nova versão; " +
+        "(1) confirme o scriptId em .clasp.json; " +
+        "(2) rode npm run apps-script:push; " +
+        "(3) rode npm run apps-script:deploy; " +
         "(4) Executar como: Eu · Quem tem acesso: Qualquer pessoa."
       );
     }

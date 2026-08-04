@@ -2,8 +2,9 @@
 
 ## Cursor Cloud specific instructions
 
-Projeto **TNJ.3D** — site estático (GitHub Pages) + Google Apps Script, com a planilha
-Google como banco de dados. Não há build: os arquivos em `assets/` são servidos direto.
+Projeto **TNJ.3D** — site estático + Google Apps Script via CLI (`clasp`), com a
+planilha Google como banco de dados. Não há build: os arquivos em `assets/` são servidos
+direto.
 
 ### Serviços e comandos
 
@@ -11,6 +12,10 @@ Google como banco de dados. Não há build: os arquivos em `assets/` são servid
   - `npm run dev` → serve em `http://localhost:8080` (via `http-server`).
   - `npm test` → roda os testes das fórmulas (`node --test`, sem dependências extras).
   - `npm run lint` → ESLint (flat config em `eslint.config.js`).
+- **Apps Script CLI** — projeto vinculado em `.clasp.json`:
+ - `npm run apps-script:login` → autentica a conta Google no `clasp`.
+ - `npm run apps-script:push` → envia `apps-script/Codigo.gs` e `appsscript.json`.
+ - `npm run apps-script:deploy` → cria uma implantação do App da Web.
 - **Backend** (`apps-script/Codigo.gs`) roda no Google Apps Script, **não** localmente.
   Não há como testá-lo neste ambiente sem uma implantação na conta Google do dono da
   planilha.

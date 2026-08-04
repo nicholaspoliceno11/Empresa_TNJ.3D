@@ -2,12 +2,12 @@
  * Configuração do site TNJ.3D.
  *
  * >>> PASSO OBRIGATÓRIO PARA CONECTAR À PLANILHA <<<
- * Depois de publicar o Google Apps Script como "App da Web" (veja o README),
- * cole a URL gerada em API_URL abaixo. Enquanto estiver vazia, o site funciona
- * em MODO DEMONSTRAÇÃO usando a lista de filamentos embutida em FILAMENTOS_DEMO.
+ * Depois de publicar o Google Apps Script pela CLI (`npm run apps-script:deploy`),
+ * cole a URL gerada em API_URL abaixo. Enquanto estiver vazia, o site funciona em
+ * MODO DEMONSTRAÇÃO usando a lista de filamentos embutida em FILAMENTOS_DEMO.
  */
 window.TNJConfig = {
-  // Cole aqui a URL do App da Web (termina em /exec) após implantar o Apps Script.
+  // Cole aqui a URL do App da Web (termina em /exec) após implantar via clasp.
   // Ex.: "https://script.google.com/macros/s/AKfycb.../exec"
   API_URL:
     "https://script.google.com/macros/s/AKfycbw0ExZh2Y-TEl9UU1mvaAiUDhKDoHlKlaE0hOPwTeUcvnm6_NXkgLX9dT5Qzjs7ZvoJpQ/exec",

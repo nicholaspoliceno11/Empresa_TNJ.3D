@@ -323,9 +323,9 @@
           <h2>Conectar à planilha</h2>
           <div class="setup-alert"><strong>Importante:</strong> Implantar como <strong>Executar como: Eu</strong> e <strong>Qualquer pessoa</strong>.</div>
           <ol class="setup-steps">
-            <li>Abra a <a id="link-planilha" href="#">planilha</a> → Extensões → Apps Script</li>
-            <li>Cole <code>apps-script/Codigo.gs</code> (com o <code>PLANILHA_ID</code> correto)</li>
-            <li>Implantar → Nova versão → Executar como: <strong>Eu</strong></li>
+            <li>Faça login com <code>npm run apps-script:login</code></li>
+            <li>Envie o backend com <code>npm run apps-script:push</code></li>
+            <li>Implante com <code>npm run apps-script:deploy</code></li>
             <li>Cole a URL <code>/exec</code> abaixo</li>
           </ol>
           <input id="api-url-input" type="url" placeholder="https://script.google.com/macros/s/…/exec" />

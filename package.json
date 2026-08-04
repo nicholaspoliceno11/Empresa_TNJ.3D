@@ -2,17 +2,27 @@
   "name": "tnj3d-gestao",
   "version": "1.0.0",
   "private": true,
-  "description": "Site de gestão e calculadora de custos para impressão 3D (TNJ.3D) — GitHub Pages + Google Apps Script.",
+  "description": "Site de gestão e calculadora de custos para impressão 3D (TNJ.3D) com Google Apps Script via CLI.",
   "scripts": {
     "dev": "http-server . -p 8080 -c-1 -o",
     "start": "http-server . -p 8080 -c-1",
     "test": "node --test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "apps-script:login": "clasp login",
+    "apps-script:status": "clasp status",
+    "apps-script:push": "clasp push",
+    "apps-script:pull": "clasp pull",
+    "apps-script:deploy": "clasp deploy -d \"TNJ.3D Web App\"",
+    "apps-script:open": "clasp open"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
+    "@google/clasp": "^3.3.0",
     "eslint": "^9.13.0",
     "globals": "^15.11.0",
     "http-server": "^14.1.1"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }
