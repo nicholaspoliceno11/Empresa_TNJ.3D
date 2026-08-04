@@ -2,3 +2,6 @@ node_modules/
 npm-debug.log*
 .DS_Store
 .env
+
+# Credenciais do clasp (login OAuth) — nunca devem ser commitadas.
+.clasprc.json

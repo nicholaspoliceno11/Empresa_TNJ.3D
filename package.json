@@ -7,10 +7,17 @@
     "dev": "http-server . -p 8080 -c-1 -o",
     "start": "http-server . -p 8080 -c-1",
     "test": "node --test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "clasp:login": "clasp login",
+    "clasp:status": "clasp status",
+    "clasp:push": "clasp push",
+    "clasp:pull": "clasp pull",
+    "clasp:open": "clasp open-script",
+    "clasp:deploy": "clasp deploy"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
+    "@google/clasp": "^3.3.0",
     "eslint": "^9.13.0",
     "globals": "^15.11.0",
     "http-server": "^14.1.1"

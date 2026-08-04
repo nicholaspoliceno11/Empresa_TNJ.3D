@@ -39,28 +39,57 @@ filamentos embutida e simula o salvamento), o que permite testar tudo localmente
 
 **Planilha:** [TNJ.3D — Gestão & Custos](https://docs.google.com/spreadsheets/d/1IRR33vv1pUYtr87Q6OpktZR3WfPHrXUrv2aOq4o1pAA/edit)
 
-### Opção A — Pela interface do site (mais rápido)
+**Projeto Apps Script:** [TNJ.3D — script.google.com](https://script.google.com/home/projects/1epspmLLlbedpTZ8HzeGB0-XMI06kMe4ozDOTdwLmwfRsMaHvaMr7pd0Y/edit)
 
-1. Abra o site e vá na aba **Configuração**.
-2. Siga os passos na tela para implantar o Apps Script na planilha.
-3. Cole a URL `/exec` e clique em **Conectar**.
+O deploy do backend é feito **via CLI** com o [`clasp`](https://github.com/google/clasp)
+(ferramenta oficial do Google para Apps Script), sem depender do GitHub para publicar o
+script — o repositório é só a fonte de verdade do código; o `push`/`deploy` acontece direto
+da sua máquina para o Apps Script.
 
-A URL fica salva no navegador (localStorage). Ideal para testar antes de publicar.
+O projeto já vem configurado (veja [`.clasp.json`](.clasp.json) e
+[`apps-script/appsscript.json`](apps-script/appsscript.json)), apontando para o script acima
+com `rootDir` em `apps-script/`.
 
-### Opção B — Via `config.js` (GitHub Pages)
+### Fluxo com clasp (CLI)
 
-1. Abra a planilha › menu **Extensões › Apps Script**.
-2. Apague o conteúdo padrão e cole o código de [`apps-script/Codigo.gs`](apps-script/Codigo.gs).
-3. Clique em **Implantar › Nova implantação**, escolha o tipo **App da Web**:
-   - **Executar como:** Eu (sua conta) — **não** use "Usuário que acessa"
-   - **Quem tem acesso:** Qualquer pessoa
-4. Autorize e **copie a URL** que termina em `/exec`.
-5. Cole essa URL em [`assets/js/config.js`](assets/js/config.js), na variável `API_URL`.
-6. Faça commit/push. Pronto: o site passa a ler e gravar na planilha.
+```bash
+npm install              # instala o clasp como dependência de dev
+npm run clasp:login      # login único (abre o navegador para autorizar sua conta Google)
+npm run clasp:status     # confere quais arquivos serão enviados
+npm run clasp:push       # envia apps-script/Codigo.gs + appsscript.json para o projeto
+npm run clasp:deploy     # cria uma nova versão implantada (App da Web)
+```
+
+- `clasp login` só precisa ser feito uma vez por máquina (grava o token em
+  `~/.clasprc.json`, **nunca** commitado).
+- `clasp push` sobrescreve o conteúdo do projeto Apps Script com os arquivos locais de
+  `apps-script/` — é o equivalente a "apagar e colar o código", mas automático.
+- `clasp deploy` cria/atualiza a implantação de **App da Web**. Na primeira vez, use
+  `npx clasp deploy --description "producao"`; da próxima em diante, `npm run clasp:deploy`
+  atualiza a implantação existente (mesma URL `/exec`).
+- Use `npm run clasp:open` para abrir o projeto no navegador quando precisar revisar
+  permissões da implantação (Executar como / Quem tem acesso) manualmente.
+- Use `npm run clasp:pull` se alguém editar o código direto no editor do Apps Script e você
+  quiser trazer essas mudanças de volta para o repositório.
+
+> A implantação de **App da Web** (Executar como: Eu / Quem tem acesso: Qualquer pessoa)
+> só precisa ser criada uma vez pelo editor do Apps Script ou com `clasp deploy`; depois
+> disso, `clasp push` + `clasp deploy` mantêm a mesma URL `/exec` atualizada.
+
+### Configurar o site com a URL do App da Web
+
+1. Depois do primeiro `clasp deploy`, copie a URL que termina em `/exec` (visível em
+   **Implantar › Gerenciar implantações** no editor, ou na saída do `clasp deploy`).
+2. Cole essa URL em [`assets/js/config.js`](assets/js/config.js), na variável `API_URL`.
+3. Faça commit/push do `config.js`. Pronto: o site passa a ler e gravar na planilha.
+
+Alternativamente, pela interface do site: abra a aba **Configuração**, cole a URL `/exec` e
+clique em **Conectar** (fica salva no navegador via localStorage — ideal para testar antes
+de publicar em `config.js`).
 
 > **Erro "sem permissão para acessar o documento"?** O `Codigo.gs` precisa estar no Apps Script
-> **da própria planilha** (Extensões › Apps Script), com `PLANILHA_ID` correto, e uma **Nova versão**
-> da implantação com **Executar como: Eu**.
+> **da própria planilha** (ou vinculado a ela via `PLANILHA_ID`), com `PLANILHA_ID` correto, e uma
+> **Nova versão** da implantação com **Executar como: Eu**.
 
 > A aba `Filamentos` deve ter os cabeçalhos `Material | Valor | QTD` (como já está na sua
 > planilha). As abas de custos são criadas/completadas automaticamente na primeira gravação.
@@ -74,11 +103,13 @@ A URL fica salva no navegador (localStorage). Ideal para testar antes de publica
 ## Estrutura
 
 ```
-index.html                 Página principal (calculadora + projetos)
-assets/css/styles.css      Estilos
-assets/js/calc.js          Fórmulas (usadas no site e nos testes)
-assets/js/config.js        Configuração (API_URL, padrões, filamentos demo)
-assets/js/app.js           Interface: carrega filamentos, calcula, salva
-apps-script/Codigo.gs      Backend Google Apps Script
-test/calc.test.js          Testes das fórmulas
+index.html                    Página principal (calculadora + projetos)
+assets/css/styles.css         Estilos
+assets/js/calc.js             Fórmulas (usadas no site e nos testes)
+assets/js/config.js           Configuração (API_URL, padrões, filamentos demo)
+assets/js/app.js              Interface: carrega filamentos, calcula, salva
+apps-script/Codigo.gs         Backend Google Apps Script
+apps-script/appsscript.json   Manifesto do projeto Apps Script (usado pelo clasp)
+.clasp.json                   Configuração do clasp (scriptId + rootDir)
+test/calc.test.js             Testes das fórmulas
 ```
