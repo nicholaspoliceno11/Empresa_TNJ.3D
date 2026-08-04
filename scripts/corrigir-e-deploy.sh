@@ -31,7 +31,8 @@ if [ ! -f "$HOME/.clasprc.json" ]; then
 fi
 
 echo "==> 1/6 Removendo arquivos que NÃO pertencem ao Apps Script..."
-rm -rf assets/ apps-script/ index.html
+rm -rf assets/ apps-script/
+# NÃO use rm index.html no Mac — apaga Index.html também (filesystem case-insensitive)!
 
 echo "==> 2/6 Configurando .clasp.json e .claspignore..."
 cat > .clasp.json << 'EOF'
