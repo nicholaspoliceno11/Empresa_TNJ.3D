@@ -1,0 +1,71 @@
+<div class="toolbar">
+  <div>
+    <h3 style="margin-bottom:0;">Kanban de tarefas</h3>
+    <div class="panel-sub">Arraste os cartões entre as colunas para atualizar o status</div>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button class="btn pdf" onclick="exportarKanbanPDF()">Baixar PDF</button>
+    <button class="btn" data-roles="Gerenciador,TI" onclick="abrirModalKanban()">+ Nova tarefa</button>
+  </div>
+</div>
+<div class="kanban-board">
+  <div class="kanban-col" data-status="Pendente" id="col-Pendente">
+    <h4>Pendente <span id="count-Pendente" class="num">0</span></h4>
+    <div class="kanban-cards"></div>
+  </div>
+  <div class="kanban-col" data-status="Andamento" id="col-Andamento">
+    <h4>Andamento <span id="count-Andamento" class="num">0</span></h4>
+    <div class="kanban-cards"></div>
+  </div>
+  <div class="kanban-col" data-status="Concluído" id="col-Concluído">
+    <h4>Concluído <span id="count-Concluído" class="num">0</span></h4>
+    <div class="kanban-cards"></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="modalKanban">
+  <div class="modal">
+    <h3>Nova tarefa</h3>
+    <input type="hidden" id="kbId">
+    <div class="form-row">
+      <label>Título
+        <input type="text" id="kbTitulo" placeholder="Ex: Confirmar cartazes da zona 3">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Descrição
+        <textarea id="kbDescricao" placeholder="Detalhes da tarefa"></textarea>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Responsável
+        <input type="text" id="kbResponsavel" placeholder="Nome">
+      </label>
+      <label>Município / Zona
+        <input type="text" id="kbMunicipio" placeholder="Ex: Palmeira dos Índios">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Prioridade
+        <select id="kbPrioridade">
+          <option>Baixa</option>
+          <option selected>Média</option>
+          <option>Alta</option>
+        </select>
+      </label>
+      <label>Prazo
+        <input type="date" id="kbPrazo">
+      </label>
+      <label>Status
+        <select id="kbStatus">
+          <option>Pendente</option>
+          <option>Andamento</option>
+          <option>Concluído</option>
+        </select>
+      </label>
+    </div>
+    <div class="form-row" style="justify-content:flex-end;">
+      <button class="btn secondary" onclick="fecharModalKanban()">Cancelar</button>
+      <button class="btn" onclick="salvarKanbanForm()">Salvar</button>
+    </div>
+  </div>
+</div>

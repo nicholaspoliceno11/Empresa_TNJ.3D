@@ -1,0 +1,11 @@
+<div class="kpi-row" id="kpiRow"> <div class="kpi-card green"> <div class="kpi-label">Saldo Financeiro</div> <div class="kpi-value num" id="kpiSaldo">—</div> <div class="kpi-sub" id="kpiSaldoSub">carregando...</div> </div> <div class="kpi-card"> <div class="kpi-label">Tarefas (Kanban)</div> <div class="kpi-value num" id="kpiTarefas">—</div> <div class="kpi-sub">total cadastradas</div> </div> <div class="kpi-card amber"> <div class="kpi-label">Eventos Futuros</div> <div class="kpi-value num" id="kpiEventos">—</div> <div class="kpi-sub">agendados a partir de hoje</div> </div> <div class="kpi-card"> <div class="kpi-label">Municípios / Zonas</div> <div class="kpi-value num" id="kpiMunicipios">—</div> <div class="kpi-sub">cobertos no banco de dados</div> </div> </div>
+
+<div class="grid-2"> <div class="panel"> <h3>Tarefas por status</h3> <div class="panel-sub">Distribuição do kanban · clique para ver detalhes na aba Kanban</div> <div id="chartKanbanFallback" class="mini-chart"></div> </div> <div class="panel"> <h3>Financeiro · Entradas vs Saídas</h3> <div class="panel-sub">Consolidado geral</div> <div id="chartFinanceiroFallback" class="mini-chart"></div> </div> </div>
+
+<div class="panel"> <h3>Próximos eventos da agenda</h3> <div class="panel-sub">Ordenados por data</div> <table class="data-table" id="tblProximosEventos"> <thead>
+
+<tr><th>Data</th><th>Título</th><th>Local</th><th>Responsável</th><th>Statu s</th></tr>
+   </thead>
+   <tbody></tbody>
+ </table>
+ <div class="empty-state" id="emptyProximosEventos" style="display:none;">Nenhum evento futuro cadastrado.</div> </div>

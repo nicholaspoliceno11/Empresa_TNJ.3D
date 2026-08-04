@@ -1,0 +1,95 @@
+<div class="panel">
+  <div class="toolbar">
+    <div>
+      <h3 style="margin-bottom:0;">Líderes</h3>
+      <div class="panel-sub">Cadastro de líderes usado na Agenda e no Financeiro</div>
+    </div>
+    <button class="btn" data-roles="Gerenciador,TI" onclick="abrirModalPessoa()">+ Novo líder</button>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr><th>Nome</th><th>Papel</th><th>Município</th><th>Telefone</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody id="tblPessoas"></tbody>
+  </table>
+  <div class="empty-state" id="emptyPessoas" style="display:none;">Nenhum líder cadastrado ainda.</div>
+</div>
+
+<div class="modal-backdrop" id="modalPessoa">
+  <div class="modal">
+    <h3>Novo líder</h3>
+    <input type="hidden" id="psId">
+    <div class="form-row">
+      <label>Nome
+        <input type="text" id="psNome" placeholder="Nome completo">
+      </label>
+      <label>Papel
+        <input type="text" id="psPapel" placeholder="Ex: Líder, Líder Religioso, Coordenador">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Município
+        <input type="text" id="psMunicipio" placeholder="Ex: Maceió">
+      </label>
+      <label>Telefone
+        <input type="text" id="psTelefone" placeholder="(82) 9....">
+      </label>
+    </div>
+    <div class="form-row" style="justify-content:flex-end;">
+      <button class="btn secondary" onclick="fecharModalPessoa()">Cancelar</button>
+      <button class="btn" onclick="salvarPessoaForm()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="toolbar">
+    <div>
+      <h3 style="margin-bottom:0;">Líderes e QGs por bairro</h3>
+      <div class="panel-sub">Cadastro dos pontos de apoio (QGs) e responsáveis por bairro</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn pdf" onclick="exportarLideresPDF()">Baixar PDF</button>
+      <button class="btn" data-roles="Gerenciador,TI" onclick="abrirModalLideres()">+ Novo QG</button>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr><th>Bairro</th><th>Município</th><th>Endereço</th><th>Responsável</th><th>Telefone</th><th></th></tr>
+    </thead>
+    <tbody id="tblLideres"></tbody>
+  </table>
+  <div class="empty-state" id="emptyLideres" style="display:none;">Nenhum QG cadastrado ainda.</div>
+</div>
+
+<div class="modal-backdrop" id="modalLideres">
+  <div class="modal">
+    <h3>Novo QG</h3>
+    <input type="hidden" id="qgId">
+    <div class="form-row">
+      <label>Bairro
+        <input type="text" id="qgBairro" placeholder="Ex: Jatiúca">
+      </label>
+      <label>Município
+        <input type="text" id="qgMunicipio" placeholder="Ex: Maceió">
+      </label>
+    </div>
+    <div class="form-row">
+      <label style="width:100%;">Endereço
+        <input type="text" id="qgEndereco" placeholder="Rua, número, ponto de referência">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Responsável / Líder
+        <input type="text" id="qgResponsavel" placeholder="Nome do responsável">
+      </label>
+      <label>Telefone (opcional)
+        <input type="text" id="qgTelefone" placeholder="(82) 9....">
+      </label>
+    </div>
+    <div class="form-row" style="justify-content:flex-end;">
+      <button class="btn secondary" onclick="fecharModalLideres()">Cancelar</button>
+      <button class="btn" onclick="salvarLideresForm()">Salvar</button>
+    </div>
+  </div>
+</div>

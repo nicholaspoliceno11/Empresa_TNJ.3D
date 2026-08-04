@@ -1,0 +1,30 @@
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <div class="login-marca">
+      <div class="brand-ribbon" style="justify-content:center;margin-bottom:0.5rem;">
+        <span class="stripe-azul"></span>
+        <span class="stripe-branco"></span>
+        <span class="stripe-vermelho"></span>
+      </div>
+      <div class="nome-renan">RENAN</div>
+      <div class="nome-filho">FILHO</div>
+      <div class="nome-senador" style="margin-top:0.5rem;">Senador Renan</div>
+    </div>
+    <div class="login-eyebrow">Sala de Situação · Campanha 2026</div>
+    <h1>Painel de Campanha</h1>
+    <p class="login-sub">Entre com seu e-mail e senha para acessar.</p>
+    <div class="form-row" style="margin-top:18px;">
+      <label style="width:100%;">E-mail
+        <input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="username">
+      </label>
+    </div>
+    <div class="form-row">
+      <label style="width:100%;">Senha
+        <input type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password">
+      </label>
+    </div>
+    <div id="loginErro" class="login-erro" style="display:none;"></div>
+    <button class="btn" id="loginBtn" style="width:100%; margin-top:8px;" onclick="tentarLogin()">Entrar</button>
+    <div class="login-loading" id="loginLoading" style="display:none;">Verificando...</div>
+  </div>
+</div>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('Styles'); ?>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <?!= include('Login'); ?>
+
+  <div class="app-shell" id="appShell">
+    <div class="topbar">
+      <div>
+        <div class="brand-ribbon">
+          <span class="stripe-azul"></span>
+          <span class="stripe-branco"></span>
+          <span class="stripe-vermelho"></span>
+        </div>
+        <div class="brand-eyebrow">Campanha 2026 · Alagoas</div>
+        <div class="brand-nomes">
+          <span class="linha-principal">Renan Filho</span>
+          <span class="linha-secundaria">Senador Renan</span>
+        </div>
+        <h1>Sala de Situação</h1>
+        <div class="subtitle">Painel de Gestão · Financeiro · Agenda · Kanban · Zonas Eleitorais</div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" data-view="painel">Painel</button>
+        <button class="tab-btn" data-view="financeiro">Financeiro</button>
+        <button class="tab-btn" data-view="agenda">Agenda</button>
+        <button class="tab-btn" data-view="kanban">Kanban</button>
+        <button class="tab-btn" data-view="zonas">Zonas</button>
+        <button class="tab-btn" data-view="lideres">Líderes e QGs</button>
+        <button class="tab-btn" data-view="usuarios" data-roles="Gerenciador,TI">Usuários</button>
+      </div>
+      <div class="user-badge">
+        <span id="userNome">—</span>
+        <span class="perfil-tag" id="userPerfil">—</span>
+        <button class="btn-logout" onclick="abrirModalTrocarSenha()">Trocar senha</button>
+        <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+      </div>
+    </div>
+    <div class="loading-bar" id="loadingBar"></div>
+
+    <main>
+      <div id="view-painel" class="view active">
+        <?!= include('Painel'); ?>
+      </div>
+      <div id="view-financeiro" class="view">
+        <?!= include('Financeiro'); ?>
+      </div>
+      <div id="view-agenda" class="view">
+        <?!= include('Agenda'); ?>
+      </div>
+      <div id="view-kanban" class="view">
+        <?!= include('Kanban'); ?>
+      </div>
+      <div id="view-zonas" class="view">
+        <?!= include('Zonas'); ?>
+      </div>
+      <div id="view-lideres" class="view">
+        <?!= include('Lideres'); ?>
+      </div>
+      <div id="view-usuarios" class="view">
+        <?!= include('Usuarios'); ?>
+      </div>
+    </main>
+  </div>
+
+  <?!= include('JavaScript'); ?>
+
+  <div class="modal-backdrop" id="modalTrocarSenha">
+    <div class="modal">
+      <h3>Trocar minha senha</h3>
+      <div class="form-row">
+        <label>Nova senha
+          <input type="password" id="novaSenha1" placeholder="Mínimo 6 caracteres">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Confirmar nova senha
+          <input type="password" id="novaSenha2" placeholder="Repita a senha">
+        </label>
+      </div>
+      <div id="senhaErro" class="login-erro" style="display:none;"></div>
+      <div class="form-row" style="justify-content:flex-end;">
+        <button class="btn secondary" onclick="fecharModalTrocarSenha()">Cancelar</button>
+        <button class="btn" onclick="confirmarTrocaSenha()">Salvar nova senha</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

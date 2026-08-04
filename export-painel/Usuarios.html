@@ -1,0 +1,17 @@
+<div class="panel"> <div class="toolbar"> <div> <h3 style="margin-bottom:0;">Usuários do painel</h3> <div class="panel-sub">Adicionar colaboradores, bloquear acesso ou trocar perfil</div> </div> <button class="btn" onclick="abrirModalUsuario()">+ Novo usuário</button> </div> <table class="data-table"> <thead>
+
+<tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Criado em</th><th></th></tr>
+   </thead>
+   <tbody id="tblUsuarios"></tbody> </table> <div class="empty-state" id="emptyUsuarios" style="display:none;">Nenhum usuário cadastrado ainda.</div> </div>
+
+<!-- Modal: novo usuário -->
+<div class="modal-backdrop" id="modalUsuario"> <div class="modal"> <h3>Novo usuário</h3> <p style="font-size:12.5px; color:var(--ink-soft); margin-top:-8px;"> Uma senha temporária será gerada e enviada por e-mail para a pessoa. Ela poderá trocá-la depois no próprio painel. </p> <div class="form-row"> <label>Nome <input type="text" id="usNome" placeholder="Nome completo"> </label> </div> <div class="form-row"> <label>E-mail <input type="email" id="usEmail" placeholder="pessoa@email.com"> </label> </div> <div class="form-row"> <label>Perfil <select id="usPerfil"> <option>Gerenciador</option> <option>TI</option> <option>Financeiro</option> <option selected>Visualizador</option> </select> </label> </div> <div id="usuarioErro" class="login-erro" style="display:none;"></div> <div class="form-row" style="justify-content:flex-end;"> <button class="btn secondary" onclick="fecharModalUsuario()">Cancelar</button> <button class="btn" id="usuarioSalvarBtn" onclick="salvarUsuarioForm()">Criar e enviar acesso</button> </div> </div> </div>
+
+<!-- Modal: editar nome -->
+<div class="modal-backdrop" id="modalEditarNome"> <div class="modal"> <h3>Editar nome</h3> <input type="hidden" id="editNomeUserId"> <div class="form-row"> <label style="width:100%;">Nome <input type="text" id="editNomeValor" placeholder="Nome completo"> </label> </div> <div id="editNomeErro" class="login-erro" style="display:none;"></div> <div class="form-row" style="justify-content:flex-end;"> <button class="btn secondary" onclick="fecharEditarNome()">Cancelar</button> <button class="btn" onclick="confirmarEditarNome()">Salvar</button> </div> </div> </div>
+
+<div class="panel"> <div class="toolbar"> <div> <h3 style="margin-bottom:0;">Logs de auditoria</h3> <div class="panel-sub">Login, criação, edição, exclusão e exportação de PDF — mais recentes primeiro</div> </div> <button class="btn pdf" onclick="exportarLogsPDF()">Baixar PDF</button> </div> <table class="data-table"> <thead>
+
+<tr><th>Data/Hora</th><th>Usuário</th><th>Perfil</th><th>Ação</th><th>Detal hes</th></tr>
+   </thead>
+   <tbody id="tblLogs"></tbody> </table> <div class="empty-state" id="emptyLogs" style="display:none;">Nenhum log registrado ainda.</div> </div>

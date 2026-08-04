@@ -1,0 +1,300 @@
+<script>
+ // --------------------------------------------------------------// Estado global // --------------------------------------------------------------let CHARTS = {};
+let CACHE = { financeiro: [], agenda: [], kanban: [], municipios: [], qgs:[], fontesRecurso: [], centrosCusto: [], subregioesMaceio: [], pessoas: [],coordenacoes: [] };  let SESSAO = { token: null, nome: null, perfil: null };
+
+ const PERFIS_EDICAO_FINANCEIRO = ['Gerenciador', 'TI', 'Financeiro']; const PERFIS_EDICAO_GERAL = ['Gerenciador', 'TI']; // agenda e kanban
+
+ // --------------------------------------------------------------// LOGIN / SESSÃO // --------------------------------------------------------------window.addEventListener('DOMContentLoaded', function () {const tokenSalvo = sessionStorage.getItem('painel_token'); if (tokenSalvo) {google.script.run .withSuccessHandler(function (info) { onSessaoValida(tokenSalvo,info); }) .withFailureHandler(function () {sessionStorage.removeItem('painel_token'); mostrarTelaLogin(); }) .revalidarSessao(tokenSalvo); } else {mostrarTelaLogin(); }
+
+   document.getElementById('loginSenha').addEventListener('keydown',function (ev) {if (ev.key === 'Enter') tentarLogin(); }); });
+
+ function mostrarTelaLogin() {document.getElementById('loginScreen').style.display = 'flex'; document.getElementById('appShell').classList.remove('ready'); }
+
+ function tentarLogin() {const email = document.getElementById('loginEmail').value.trim(); const senha = document.getElementById('loginSenha').value; const erroBox = document.getElementById('loginErro'); erroBox.style.display = 'none'; if (!email || !senha) {erroBox.textContent = 'Preencha e-mail e senha.'; erroBox.style.display = 'block'; return; } document.getElementById('loginBtn').disabled = true; document.getElementById('loginLoading').style.display = 'block';
+
+   google.script.run .withSuccessHandler(function (resultado) {sessionStorage.setItem('painel_token', resultado.accessToken); onSessaoValida(resultado.accessToken, { nome: resultado.nome,perfil: resultado.perfil }); }) .withFailureHandler(function (err) {document.getElementById('loginBtn').disabled = false; document.getElementById('loginLoading').style.display = 'none'; erroBox.textContent = err && err.message ? err.message : 'Erro ao entrar.'; erroBox.style.display = 'block'; }) .login(email, senha); }
+
+ function onSessaoValida(token, info) {SESSAO.token = token;
+   SESSAO.nome = info.nome;
+   SESSAO.perfil = info.perfil;
+
+   document.getElementById('loginScreen').style.display = 'none'; document.getElementById('appShell').classList.add('ready'); document.getElementById('userNome').textContent = info.nome || '—'; document.getElementById('userPerfil').textContent = info.perfil || '—';
+
+   aplicarPermissoes();
+   carregarDadosIniciais();
+ }
+
+ function fazerLogout() {sessionStorage.removeItem('painel_token'); SESSAO = { token: null, nome: null, perfil: null }; document.getElementById('loginEmail').value = ''; document.getElementById('loginSenha').value = ''; document.getElementById('loginBtn').disabled = false; document.getElementById('loginLoading').style.display = 'none'; document.getElementById('loginErro').style.display = 'none'; mostrarTelaLogin(); }
+
+ /** Mostra/esconde elementos com data-roles conforme o perfil logado */ function aplicarPermissoes() {document.querySelectorAll('[data-roles]').forEach(function (el) {const permitidos = el.dataset.roles.split(','); el.classList.toggle('hidden-by-role',permitidos.indexOf(SESSAO.perfil) === -1); }); }
+
+ function podeEditarFinanceiro() { return PERFIS_EDICAO_FINANCEIRO.indexOf(SESSAO.perfil) !== -1; }
+ function podeEditarGeral() { return PERFIS_EDICAO_GERAL.indexOf(SESSAO.perfil) !== -1; }
+
+ // --------------------------------------------------------------// Navegação entre abas // --------------------------------------------------------------document.querySelectorAll('.tab-btn').forEach(function (btn) {btn.addEventListener('click', function () {document.querySelectorAll('.tab-btn').forEach(function (b) {b.classList.remove('active'); }); document.querySelectorAll('.view').forEach(function (v) {v.classList.remove('active'); }); btn.classList.add('active'); document.getElementById('view-' +btn.dataset.view).classList.add('active'); if (btn.dataset.view === 'usuarios') { carregarUsuarios(); carregarLogs(); } }); });
+
+ function setLoading(pct) {document.getElementById('loadingBar').style.width = pct + '%'; }
+
+ function money(v) {return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+ function fmtDate(iso) {if (!iso) return '—'; const d = new Date(iso); return d.toLocaleDateString('pt-BR'); }
+
+ function fmtDateTime(iso) {if (!iso) return '—'; const d = new Date(iso); return d.toLocaleDateString('pt-BR') + ' ' +d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+
+ function badgeClass(value) {const map = {'Entrada': 'entrada', 'Saída': 'saida','Pendente': 'pendente', 'Andamento': 'andamento', 'Concluído':'concluido','Aprovado': 'concluido', 'Rejeitado': 'saida','Base / Aliado': 'aliado', 'Oposição': 'oposicao', 'Neutro': 'neutro' }; return map[value] || ''; }
+
+ function escapeHtml(str) {if (str == null) return ''; return String(str).replace(/[&<>"']/g, function (m) {return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'":'&#39;' }[m]; }); }
+
+ // --------------------------------------------------------------// Carregamento inicial // --------------------------------------------------------------function carregarDadosIniciais() {setLoading(20);
+   google.script.run .withSuccessHandler(onResumoLoaded)
+     .withFailureHandler(onError)
+     .getResumoPainel(SESSAO.token);
+ }
+
+ function onError(err) {setLoading(0);
+   console.error(err);
+   alert('Erro ao carregar dados: ' + (err && err.message ? err.message : err)); }
+
+ function onResumoLoaded(resumo) {setLoading(70);
+   CACHE.financeiro = resumo.financeiro || [];
+   CACHE.agenda = resumo.agenda || [];
+   CACHE.kanban = resumo.kanban || [];
+   CACHE.municipios = resumo.municipios || [];
+   CACHE.qgs = resumo.qgs || [];
+   CACHE.fontesRecurso = resumo.fontesRecurso || [];
+   CACHE.centrosCusto = resumo.centrosCusto || [];
+   CACHE.pessoas = resumo.pessoas || [];
+   CACHE.coordenacoes = resumo.coordenacoes || [];
+   CACHE.subregioesMaceio = resumo.subregioesMaceio || [];
+
+   try { renderPainel(resumo); } catch (e) { console.error('Erro no Painel:', e); } try { renderFinanceiro(); } catch (e) { console.error('Erro no Financeiro:', e); } try { renderAgenda(); } catch (e) { console.error('Erro na Agenda:', e); } try { renderKanban(); } catch (e) { console.error('Erro no Kanban:', e); } try { renderZonas(); } catch (e) { console.error('Erro nas Zonas:', e); } try { renderPessoas(); } catch (e) { console.error('Erro em Pessoas:',e); } try { renderLideres(); } catch (e) { console.error('Erro em Líderes:',e); } setLoading(100); setTimeout(function () { setLoading(0); }, 400); }
+
+ function recarregarTudo() {setLoading(20);
+
+google.script.run.withSuccessHandler(onResumoLoaded).withFailureHandler(onError).getResumoPainel(SESSAO.token);
+ }
+
+ // --------------------------------------------------------------// PAINEL // --------------------------------------------------------------function renderPainel(resumo) {document.getElementById('kpiSaldo').textContent = money(resumo.saldo); document.getElementById('kpiSaldoSub').textContent = money(resumo.totalEntradas) + ' entradas / ' +money(resumo.totalSaidas) + ' saídas'; document.getElementById('kpiTarefas').textContent = resumo.totalTarefas; document.getElementById('kpiEventos').textContent = resumo.proximosEventos; document.getElementById('kpiMunicipios').textContent = resumo.totalMunicipios;
+
+   const ctxK = document.getElementById('chartKanbanFallback'); try {const kStatuses = [{ label: 'Pendente', value: resumo.kanbanPorStatus.Pendente || 0,color: '#dc9a2e' },{ label: 'Andamento', value: resumo.kanbanPorStatus.Andamento || 0,color: '#14a8a2' },{ label: 'Concluído', value: resumo.kanbanPorStatus['Concluído'] ||0, color: '#2f9e6e' } ]; const maxK = Math.max(1, kStatuses.reduce(function (m, s) { return Math.max(m, s.value); }, 0)); ctxK.innerHTML = kStatuses.map(function (s) {const pct = Math.round((s.value / maxK) * 100); return '<div class="bar-row">' +'<div class="bar-label">' + s.label + '</div>' +'<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%; background:' + s.color + ';"></div></div>' +'<div class="bar-value num">' + s.value + '</div>' +'</div>'; }).join(''); } catch (e) { console.error('Erro no gráfico Kanban:', e); }
+
+   const ctxF = document.getElementById('chartFinanceiroFallback'); try {const entradas = resumo.totalEntradas || 0; const saidas = resumo.totalSaidas || 0; const totalEF = entradas + saidas; const pctEntradas = totalEF > 0 ? Math.round((entradas / totalEF) * 100) : 0; const gradiente = totalEF > 0 ? 'conic-gradient(#2f9e6e 0% ' + pctEntradas + '%, #d94f4f ' +pctEntradas + '% 100%)' : 'conic-gradient(#e2e8ee 0% 100%)'; ctxF.innerHTML = '<div class="donut-wrap">' +'<div class="donut-ring" style="background:' + gradiente + ';">' +'<div class="donut-hole">' + (totalEF > 0 ? pctEntradas +'%<br>entradas' : 'sem<br>dados') + '</div>' +'</div>' +'<div class="donut-legend">' +'<div class="item"><span class="dot" style="background:#2f9e6e;"></span>Entradas <span class="val">' +money(entradas) + '</span></div>' +'<div class="item"><span class="dot" style="background:#d94f4f;"></span>Saídas <span class="val">' +money(saidas) + '</span></div>' +'</div>' +'</div>'; } catch (e) { console.error('Erro no gráfico Financeiro:', e); }
+
+   try {const hoje = new Date();
+     const proximos = CACHE.agenda .filter(function (e) { return new Date(e.data_inicio) >= hoje &&e.status === 'Agendado'; }) .sort(function (a, b) { return new Date(a.data_inicio) - new Date(b.data_inicio); }) .slice(0, 8); const tbody = document.querySelector('#tblProximosEventos tbody'); tbody.innerHTML = ''; document.getElementById('emptyProximosEventos').style.display = proximos.length ? 'none' : 'block'; proximos.forEach(function (e) {const tr = document.createElement('tr'); tr.innerHTML = '<td>' + fmtDateTime(e.data_inicio) + '</td>' +'<td>' + escapeHtml(e.titulo) + '</td>' +'<td>' + escapeHtml(e.local || '—') + '</td>' +'<td>' + escapeHtml(e.responsavel || '—') + '</td>' +'<td><span class="badge ' + badgeClass(e.status) + '">' + e.status + '</span></td>'; tbody.appendChild(tr); }); } catch (e) { console.error('Erro nos próximos eventos:', e); } }
+
+ // --------------------------------------------------------------// FINANCEIRO // --------------------------------------------------------------function mapaFontesPermitidas() {const mapa = {};
+   (CACHE.centrosCusto || []).forEach(function (cc) {mapa[cc.id] = (cc.centro_custo_fonte || []).map(function (v) { return v.fonte_recurso_id; });
+   });
+   return mapa;
+ }
+
+ function popularDropdownsFinanceiro() {const selCentro = document.getElementById('finCentroCusto'); if (!selCentro) return; const centroAtual = selCentro.value; selCentro.innerHTML = '<option value="">Selecione...</option>' +(CACHE.centrosCusto || []).map(function (cc) {return '<option value="' + cc.id + '">' + escapeHtml(cc.codigo + ' — ' + cc.categoria) + '</option>'; }).join(''); selCentro.value = centroAtual; atualizarFontesPermitidas(); const selCoord = document.getElementById('finCoordenacao'); if (selCoord) {const coordAtual = selCoord.value; selCoord.innerHTML = '<option value="">Selecione...</option>' +(CACHE.coordenacoes || []).map(function (c) {return '<option value="' + c.id + '">' + escapeHtml(c.codigo + ' — ' + c.nome) + '</option>'; }).join(''); selCoord.value = coordAtual; } }
+
+ function atualizarFontesPermitidas() {const selCentro = document.getElementById('finCentroCusto'); const selFonte = document.getElementById('finFonteRecurso'); if (!selCentro || !selFonte) return; const centroId = selCentro.value; const mapa = mapaFontesPermitidas(); const permitidas = centroId && mapa[centroId] && mapa[centroId].length ? mapa[centroId] : null;
+
+   const fonteAtual = selFonte.value;
+   const opcoes = (CACHE.fontesRecurso || []).filter(function (fr) {return !permitidas || permitidas.indexOf(fr.id) !== -1;
+   });
+   selFonte.innerHTML = '<option value="">Selecione...</option>' +opcoes.map(function (fr) {return '<option value="' + fr.id + '">' + escapeHtml(fr.codigo + ' — ' + fr.nome) + '</option>'; }).join(''); if (fonteAtual && opcoes.some(function (o) { return o.id === fonteAtual; })) {selFonte.value = fonteAtual; }
+
+   const centroSelecionado = (CACHE.centrosCusto || []).find(function (cc)
+{ return cc.id === centroId; });
+   const avisoBox = document.getElementById('finAvisoCentro'); if (avisoBox) {const temAviso = centroSelecionado &&centroSelecionado.observacao_fonte; avisoBox.style.display = temAviso ? 'block' : 'none'; if (temAviso) avisoBox.textContent = 'Atenção: ' +centroSelecionado.observacao_fonte; } }
+
+ function popularDropdownMunicipio() {const sel = document.getElementById('finMunicipio'); if (!sel) return; const atual = sel.value; sel.innerHTML = '<option value="">Selecione...</option>' +(CACHE.municipios || []).map(function (m) {return '<option value="' + escapeHtml(m.municipio) + '">' +escapeHtml(m.municipio) + '</option>'; }).join(''); sel.value = atual; }
+
+ function atualizarZonaOuRegiao() {const municipio = document.getElementById('finMunicipio').value; const ehMaceio = municipio === 'Maceió'; const displayZona = document.getElementById('finZonaEleitoralDisplay'); const selRegiao = document.getElementById('finSubregiaoMaceio'); const label = document.getElementById('finZonaRegiaoLabel');
+
+   label.textContent = ehMaceio ? 'Região / QG' : 'Zona Eleitoral'; displayZona.style.display = ehMaceio ? 'none' : ''; selRegiao.style.display = ehMaceio ? '' : 'none';
+
+   if (ehMaceio) {selRegiao.innerHTML = '<option value="">Selecione a região/QG...</option>' +(CACHE.subregioesMaceio || []).map(function (s) {return '<option value="' + s.id + '">' + escapeHtml(s.id_subregiao + ' — ' + s.nome_regiao) + '</option>'; }).join(''); } else {const m = (CACHE.municipios || []).find(function (x) { return x.municipio === municipio; }); displayZona.value = m && m.zona_eleitoral ? m.zona_eleitoral : ''; } }
+
+ function alternarCamposPorTipo() {const ehSaida = document.getElementById('finTipo').value === 'Saída'; document.querySelectorAll('#modalFinanceiro .campo-saida').forEach(function (el) {el.style.display = ehSaida ? '' : 'none'; }); document.querySelectorAll('#modalFinanceiro .campo-entrada').forEach(function (el) {el.style.display = ehSaida ? 'none' : ''; }); atualizarFontesPermitidas(); }
+
+ function renderFinanceiro() {let entradas = 0, saidas = 0;
+   CACHE.financeiro.forEach(function (f) {if (f.tipo === 'Entrada') entradas += Number(f.valor); else saidas += Number(f.valor); }); document.getElementById('finEntradas').textContent = money(entradas); document.getElementById('finSaidas').textContent = money(saidas); document.getElementById('finSaldo').textContent = money(entradas saidas);
+
+   const tbody = document.getElementById('tblFinanceiro'); tbody.innerHTML = ''; document.getElementById('emptyFinanceiro').style.display = CACHE.financeiro.length ? 'none' : 'block'; const podeEditar = podeEditarFinanceiro(); CACHE.financeiro.forEach(function (f) {const responsavel = f.tipo === 'Entrada' ? (f.responsavel_recebimento || f.lider || '—') : (f.responsavel_pagamento || f.lider || '—'); const centro = f.centros_custo ? (f.centros_custo.codigo + ' — ' +f.centros_custo.categoria) : (f.categoria || '—'); const coordenacao = f.coordenacoes ? (f.coordenacoes.codigo + ' — ' +f.coordenacoes.nome) : '—'; const fonte = f.fontes_recurso ? f.fontes_recurso.codigo : '—'; const status = f.status_aprovacao || 'Pendente'; const zonaRegiao = f.zona_eleitoral || (f.subregiao_maceio_id ? 'QG Maceió' : '—'); const tr = document.createElement('tr'); tr.innerHTML = '<td>' + fmtDate(f.data) + '</td>' +'<td><span class="badge ' + badgeClass(f.tipo) + '">' + f.tipo +'</span></td>' +'<td>' + escapeHtml(responsavel) + '</td>' +'<td>' + escapeHtml(centro) + '</td>' +'<td>' + escapeHtml(coordenacao) + '</td>' +'<td>' + escapeHtml(fonte) + '</td>' +'<td>' + escapeHtml(f.municipio || '—') + '</td>' +'<td>' + escapeHtml(zonaRegiao) + '</td>' +'<td><span class="badge ' + badgeClass(status) + '">' + status +'</span></td>' +'<td class="num">' + money(f.valor) + '</td>' +'<td>' + (podeEditar ? '<button class="btn secondary" onclick="editarFinanceiro(\'' +f.id + '\')">Editar</button> ' +'<button class="btn secondary" onclick="excluirFinanceiroConfirm(\'' + f.id + '\')">Excluir</button>' : '') + '</td>'; tbody.appendChild(tr); }); }
+
+ function abrirModalFinanceiro() {document.getElementById('finId').value = ''; document.getElementById('finTipo').value = 'Entrada'; document.getElementById('finValor').value = ''; document.getElementById('finData').value = new Date().toISOString().slice(0, 10); document.getElementById('finDescricao').value = ''; document.getElementById('finComprovante').value = ''; document.getElementById('finResponsavelRecebimento').value = ''; document.getElementById('finResponsavelPagamento').value = ''; document.getElementById('finSolicitante').value = ''; document.getElementById('finFornecedor').value = ''; document.getElementById('finDocFiscal').value = ''; document.getElementById('finReciboEleitoral').value = ''; document.getElementById('finDoadorDocumento').value = ''; document.getElementById('finStatusAprovacao').value = 'Pendente'; popularDropdownsFinanceiro(); document.getElementById('finCentroCusto').value = ''; document.getElementById('finFonteRecurso').value = ''; popularDropdownMunicipio(); document.getElementById('finMunicipio').value = ''; document.getElementById('finCoordenacao').value = ''; atualizarZonaOuRegiao(); alternarCamposPorTipo(); document.getElementById('modalFinanceiro').classList.add('show'); }
+
+ function editarFinanceiro(id) {const f = CACHE.financeiro.find(function (x) { return x.id === id; });
+   if (!f) return;
+   document.getElementById('finId').value = f.id; document.getElementById('finTipo').value = f.tipo; document.getElementById('finValor').value = f.valor; document.getElementById('finData').value = f.data; document.getElementById('finDescricao').value = f.descricao || ''; document.getElementById('finComprovante').value = f.comprovante_url ||''; document.getElementById('finResponsavelRecebimento').value = f.responsavel_recebimento || (f.tipo === 'Entrada' ? (f.lider || '') : ''); document.getElementById('finResponsavelPagamento').value = f.responsavel_pagamento || (f.tipo === 'Saída' ? (f.lider || '') : ''); document.getElementById('finSolicitante').value = f.solicitante || ''; document.getElementById('finFornecedor').value = f.fornecedor || ''; document.getElementById('finDocFiscal').value = f.doc_fiscal || ''; document.getElementById('finReciboEleitoral').value = f.recibo_eleitoral || ''; document.getElementById('finDoadorDocumento').value = f.doador_documento || ''; document.getElementById('finStatusAprovacao').value = f.status_aprovacao || 'Pendente'; popularDropdownsFinanceiro(); document.getElementById('finCentroCusto').value = f.centro_custo_id ||''; atualizarFontesPermitidas(); document.getElementById('finFonteRecurso').value = f.fonte_recurso_id ||''; popularDropdownMunicipio(); document.getElementById('finCoordenacao').value = f.coordenacao_id || ''; document.getElementById('finMunicipio').value = f.municipio || ''; atualizarZonaOuRegiao(); if (f.municipio === 'Maceió') {document.getElementById('finSubregiaoMaceio').value = f.subregiao_maceio_id || ''; } else {document.getElementById('finZonaEleitoralDisplay').value = f.zona_eleitoral || ''; } alternarCamposPorTipo(); document.getElementById('modalFinanceiro').classList.add('show'); }
+
+ function fecharModalFinanceiro() {document.getElementById('modalFinanceiro').classList.remove('show'); }
+
+ function salvarFinanceiroForm() {const tipo = document.getElementById('finTipo').value; const responsavelRecebimento = document.getElementById('finResponsavelRecebimento').value.trim(); const responsavelPagamento = document.getElementById('finResponsavelPagamento').value.trim(); const municipioSelecionado = document.getElementById('finMunicipio').value; const ehMaceio = municipioSelecionado === 'Maceió'; const registro = {tipo: tipo,valor: parseFloat(document.getElementById('finValor').value || '0'),municipio: municipioSelecionado,zona_eleitoral: ehMaceio ? null :(document.getElementById('finZonaEleitoralDisplay').value || null),subregiao_maceio_id: ehMaceio ? (document.getElementById('finSubregiaoMaceio').value || null) : null,data: document.getElementById('finData').value,descricao: document.getElementById('finDescricao').value,comprovante_url: document.getElementById('finComprovante').value,centro_custo_id: document.getElementById('finCentroCusto').value ||null,fonte_recurso_id: document.getElementById('finFonteRecurso').value ||null,responsavel_recebimento: tipo === 'Entrada' ? responsavelRecebimento :null,coordenacao_id: document.getElementById('finCoordenacao').value ||null,responsavel_pagamento: tipo === 'Saída' ? responsavelPagamento : null,solicitante: tipo === 'Saída' ? document.getElementById('finSolicitante').value.trim() : null,fornecedor: tipo === 'Saída' ? document.getElementById('finFornecedor').value.trim() : null,doc_fiscal: tipo === 'Saída' ? document.getElementById('finDocFiscal').value.trim() : null,recibo_eleitoral:document.getElementById('finReciboEleitoral').value.trim(),doador_documento: tipo === 'Entrada' ? document.getElementById('finDoadorDocumento').value.trim() : null,status_aprovacao: document.getElementById('finStatusAprovacao').value,lider: tipo === 'Entrada' ? responsavelRecebimento :responsavelPagamento }; const id = document.getElementById('finId').value; if (id) registro.id = id; setLoading(40); google.script.run .withSuccessHandler(function () { fecharModalFinanceiro(); recarregarTudo(); }) .withFailureHandler(onError) .salvarFinanceiro(SESSAO.token, registro); } function excluirFinanceiroConfirm(id) {const f = CACHE.financeiro.find(function (x) { return x.id === id; }); const desc = f ? (f.tipo + ' de ' + money(f.valor)) : 'este lançamento'; if (!confirm('Excluir ' + desc + '? Essa ação não pode ser desfeita.')) return; setLoading(40); google.script.run .withSuccessHandler(function () { recarregarTudo(); }) .withFailureHandler(onError) .excluirFinanceiro(SESSAO.token, id); } function exportarFinanceiroPDF() {const linhas = CACHE.financeiro.map(function (f) {const responsavel = f.tipo === 'Entrada' ? (f.responsavel_recebimento || f.lider || '—') : (f.responsavel_pagamento || f.lider || '—'); const centro = f.centros_custo ? (f.centros_custo.codigo + ' — ' +f.centros_custo.categoria) : (f.categoria || '—'); const zonaRegiao = f.zona_eleitoral || (f.subregiao_maceio_id ? 'QG Maceió' : '—'); const coordenacao = f.coordenacoes ? f.coordenacoes.codigo : '—'; return [fmtDate(f.data), f.tipo, responsavel, centro, coordenacao,f.municipio || '—', zonaRegiao, f.status_aprovacao || 'Pendente',money(f.valor)]; }); exportarPDF('Financeiro - Painel de Campanha', ['Data', 'Tipo','Responsável', 'Centro de Custo', 'Coordenação', 'Município','Zona/Região', 'Status', 'Valor'], linhas);
+
+ // --------------------------------------------------------------// AGENDA // --------------------------------------------------------------let CAL_MES = new Date().getMonth();
+ let CAL_ANO = new Date().getFullYear();
+ const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Set embro','Outubro','Novembro','Dezembro'];
+
+ function agendaFiltrada() {const lider = document.getElementById('agendaFiltroLider') ? document.getElementById('agendaFiltroLider').value : ''; if (!lider) return CACHE.agenda; return CACHE.agenda.filter(function (e) { return e.responsavel === lider; }); }
+
+ function popularFiltroLideres() {const sel = document.getElementById('agendaFiltroLider'); if (!sel) return; const atual = sel.value; const lideres = Array.from(new Set(CACHE.agenda.map(function (e) {return e.responsavel; }).filter(Boolean))).sort(); sel.innerHTML = '<option value="">Todos os líderes</option>' +lideres.map(function (l) { return '<option' + (l === atual ? ' selected' : '') + '>' + escapeHtml(l) + '</option>'; }).join(''); }
+
+ function renderAgenda() {popularFiltroLideres();
+   const eventos = agendaFiltrada();
+   const tbody = document.getElementById('tblAgenda'); tbody.innerHTML = ''; document.getElementById('emptyAgenda').style.display = eventos.length ? 'none' : 'block'; const podeEditar = podeEditarGeral(); eventos .slice() .sort(function (a, b) { return new Date(a.data_inicio) - new Date(b.data_inicio); }) .forEach(function (e) {const tr = document.createElement('tr'); tr.innerHTML = '<td>' + fmtDateTime(e.data_inicio) + '</td>' +'<td>' + escapeHtml(e.titulo) + '</td>' +'<td>' + escapeHtml(e.local || '—') + '</td>' +'<td>' + escapeHtml(e.responsavel || '—') + '</td>' +'<td>' + escapeHtml(e.municipio || '—') + '</td>' +'<td><span class="badge ' + badgeClass(e.status) + '">' + e.status + '</span></td>' +'<td>' + (podeEditar ? '<button class="btn secondary" onclick="editarAgenda(\'' + e.id + '\')">Editar</button>' : '') + '</td>'; tbody.appendChild(tr); }); renderCalendarioAgenda(); }
+
+ document.addEventListener('change', function (ev) {if (ev.target && ev.target.id === 'agendaFiltroLider') renderAgenda(); });
+
+ function calendarioMesAnterior() {CAL_MES--; if (CAL_MES < 0) { CAL_MES = 11; CAL_ANO--; }
+   renderCalendarioAgenda();
+ }
+ function calendarioProximoMes() {CAL_MES++; if (CAL_MES > 11) { CAL_MES = 0; CAL_ANO++; }
+   renderCalendarioAgenda();
+ }
+ function calendarioHoje() {const hoje = new Date();
+   CAL_MES = hoje.getMonth(); CAL_ANO = hoje.getFullYear();
+   renderCalendarioAgenda();
+ }
+
+ function statusClasseCal(status) {if (status === 'Realizado') return 'st-realizado'; if (status === 'Cancelado') return 'st-cancelado'; return 'st-agendado'; }
+
+ function renderCalendarioAgenda() {const label = document.getElementById('calMesLabel'); if (!label) return; label.textContent = MESES_PT[CAL_MES] + ' de ' + CAL_ANO;
+
+   const eventos = agendaFiltrada();
+   const porDia = {};
+   eventos.forEach(function (e) {if (!e.data_inicio) return;
+     const d = new Date(e.data_inicio);
+     if (d.getMonth() !== CAL_MES || d.getFullYear() !== CAL_ANO) return;
+     const dia = d.getDate();
+     (porDia[dia] = porDia[dia] || []).push(e);
+   });
+
+   const primeiroDia = new Date(CAL_ANO, CAL_MES, 1);
+   const ultimoDia = new Date(CAL_ANO, CAL_MES + 1, 0);
+   const diasNoMes = ultimoDia.getDate();
+   const iniciaEm = primeiroDia.getDay(); // 0=domingo const hoje = new Date();
+   const grid = document.getElementById('calGridDias'); grid.innerHTML = '';
+
+   for (let i = 0; i < iniciaEm; i++) {const div = document.createElement('div'); div.className = 'cal-day outro-mes'; grid.appendChild(div); }
+
+   for (let dia = 1; dia <= diasNoMes; dia++) {const div = document.createElement('div'); const ehHoje = hoje.getDate() === dia && hoje.getMonth() === CAL_MES && hoje.getFullYear() === CAL_ANO; div.className = 'cal-day' + (ehHoje ? ' hoje' : ''); const eventosDoDia = (porDia[dia] || []).sort(function (a, b) { return new Date(a.data_inicio) - new Date(b.data_inicio); }); let html = '<div class="cal-day-num">' + dia + '</div>'; eventosDoDia.slice(0, 3).forEach(function (e) {const hora = new Date(e.data_inicio).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit' }); html += '<div class="cal-evento ' + statusClasseCal(e.status) + '" title="' + escapeHtml(e.titulo) + ' — ' + (e.responsavel || '') + '" onclick="editarAgenda(\'' + e.id + '\')">' + hora + ' ' +escapeHtml(e.titulo) + '</div>'; }); if (eventosDoDia.length > 3) {html += '<div class="cal-evento-mais">+' + (eventosDoDia.length - 3) + ' mais</div>'; } div.innerHTML = html; grid.appendChild(div); } }
+
+ function abrirModalAgenda() {document.getElementById('agId').value = ''; document.getElementById('agTitulo').value = ''; document.getElementById('agInicio').value = ''; document.getElementById('agFim').value = ''; document.getElementById('agLocal').value = ''; document.getElementById('agMunicipio').value = ''; document.getElementById('agResponsavel').value = ''; document.getElementById('agStatus').value = 'Agendado'; document.getElementById('agDescricao').value = ''; document.getElementById('modalAgenda').classList.add('show'); }
+
+ function editarAgenda(id) {const e = CACHE.agenda.find(function (x) { return x.id === id; });
+   if (!e) return;
+   document.getElementById('agId').value = e.id; document.getElementById('agTitulo').value = e.titulo; document.getElementById('agInicio').value = e.data_inicio ? e.data_inicio.slice(0, 16) : ''; document.getElementById('agFim').value = e.data_fim ? e.data_fim.slice(0, 16) : ''; document.getElementById('agLocal').value = e.local || ''; document.getElementById('agMunicipio').value = e.municipio || ''; document.getElementById('agResponsavel').value = e.responsavel || ''; document.getElementById('agStatus').value = e.status; document.getElementById('agDescricao').value = e.descricao || ''; document.getElementById('modalAgenda').classList.add('show'); }
+
+ function fecharModalAgenda() {document.getElementById('modalAgenda').classList.remove('show'); }
+
+ function salvarAgendaForm() {const registro = {titulo: document.getElementById('agTitulo').value,data_inicio: document.getElementById('agInicio').value ? new Date(document.getElementById('agInicio').value).toISOString() : null,data_fim: document.getElementById('agFim').value ? new Date(document.getElementById('agFim').value).toISOString() : null,local: document.getElementById('agLocal').value,municipio: document.getElementById('agMunicipio').value,responsavel: document.getElementById('agResponsavel').value,status: document.getElementById('agStatus').value,descricao: document.getElementById('agDescricao').value }; const id = document.getElementById('agId').value; if (id) registro.id = id; setLoading(40); google.script.run .withSuccessHandler(function () { fecharModalAgenda(); recarregarTudo(); }) .withFailureHandler(onError) .salvarAgenda(SESSAO.token, registro); }
+
+ function exportarAgendaPDF() {const linhas = agendaFiltrada().map(function (e) {return [fmtDateTime(e.data_inicio), e.titulo, e.local || '—',e.responsavel || '—', e.municipio || '—', e.status]; }); exportarPDF('Agenda - Painel de Campanha', ['Data/Hora', 'Título','Local', 'Responsável', 'Município', 'Status'], linhas); }
+
+ // --------------------------------------------------------------// KANBAN // --------------------------------------------------------------function renderKanban() {const podeEditar = podeEditarGeral();
+   ['Pendente', 'Andamento', 'Concluído'].forEach(function (status) {const col = document.querySelector('#col-' + status + ' .kanban-cards'); col.innerHTML = ''; const items = CACHE.kanban.filter(function (t) { return t.status === status; }); document.getElementById('count-' + status).textContent = items.length; items.forEach(function (t) {const card = document.createElement('div'); card.className = 'kanban-card prioridade-' + (t.prioridade ||'Média'); card.draggable = podeEditar; card.style.cursor = podeEditar ? 'grab' : 'default'; card.dataset.id = t.id; card.innerHTML = '<div class="t">' + escapeHtml(t.titulo) + '</div>' +'<div class="meta">' + (t.responsavel ? escapeHtml(t.responsavel) : 'Sem responsável') +(t.prazo ? ' · prazo ' + fmtDate(t.prazo) : '') + '</div>'; if (podeEditar) {card.addEventListener('click', function () { editarKanban(t.id); }); card.addEventListener('dragstart', function (ev) {ev.dataTransfer.setData('text/plain', t.id); }); } col.appendChild(card); }); });
+
+   if (!podeEditar) return;
+
+   document.querySelectorAll('.kanban-col').forEach(function (col) {col.addEventListener('dragover', function (ev) { ev.preventDefault(); col.classList.add('drag-over'); }); col.addEventListener('dragleave', function () {col.classList.remove('drag-over'); }); col.addEventListener('drop', function (ev) {ev.preventDefault(); col.classList.remove('drag-over'); const id = ev.dataTransfer.getData('text/plain'); const novoStatus = col.dataset.status; const tarefa = CACHE.kanban.find(function (t) { return t.id === id; }); if (tarefa && tarefa.status !== novoStatus) {tarefa.status = novoStatus; renderKanban();
+
+google.script.run.withFailureHandler(onError).atualizarStatusKanban(SESSAO. token, id, novoStatus);
+       }
+     });
+   });
+ }
+
+ function abrirModalKanban() {document.getElementById('kbId').value = ''; document.getElementById('kbTitulo').value = ''; document.getElementById('kbDescricao').value = ''; document.getElementById('kbResponsavel').value = ''; document.getElementById('kbMunicipio').value = ''; document.getElementById('kbPrioridade').value = 'Média'; document.getElementById('kbPrazo').value = ''; document.getElementById('kbStatus').value = 'Pendente'; document.getElementById('modalKanban').classList.add('show'); }
+
+ function editarKanban(id) {const t = CACHE.kanban.find(function (x) { return x.id === id; });
+   if (!t) return;
+   document.getElementById('kbId').value = t.id; document.getElementById('kbTitulo').value = t.titulo; document.getElementById('kbDescricao').value = t.descricao || ''; document.getElementById('kbResponsavel').value = t.responsavel || ''; document.getElementById('kbMunicipio').value = t.municipio || ''; document.getElementById('kbPrioridade').value = t.prioridade || 'Média'; document.getElementById('kbPrazo').value = t.prazo || ''; document.getElementById('kbStatus').value = t.status; document.getElementById('modalKanban').classList.add('show'); }
+
+ function fecharModalKanban() {document.getElementById('modalKanban').classList.remove('show'); }
+
+ function salvarKanbanForm() {const registro = {titulo: document.getElementById('kbTitulo').value,descricao: document.getElementById('kbDescricao').value,responsavel: document.getElementById('kbResponsavel').value,municipio: document.getElementById('kbMunicipio').value,prioridade: document.getElementById('kbPrioridade').value,prazo: document.getElementById('kbPrazo').value || null,status: document.getElementById('kbStatus').value }; const id = document.getElementById('kbId').value; if (id) registro.id = id; setLoading(40); google.script.run .withSuccessHandler(function () { fecharModalKanban(); recarregarTudo(); }) .withFailureHandler(onError) .salvarKanban(SESSAO.token, registro); }
+
+ function exportarKanbanPDF() {const linhas = CACHE.kanban.map(function (t) {return [t.titulo, t.status, t.prioridade || '—', t.responsavel || '—',t.prazo ? fmtDate(t.prazo) : '—']; }); exportarPDF('Kanban - Painel de Campanha', ['Título', 'Status','Prioridade', 'Responsável', 'Prazo'], linhas); }
+
+ // --------------------------------------------------------------// ZONAS ELEITORAIS // --------------------------------------------------------------function renderZonas() {const tbody = document.getElementById('tblZonas'); const filtro = (document.getElementById('zonasFiltro').value ||'').toLowerCase(); tbody.innerHTML = ''; const dados = CACHE.municipios.filter(function (m) {return !filtro || (m.municipio || '').toLowerCase().indexOf(filtro) !== -1; }); document.getElementById('emptyZonas').style.display = dados.length ? 'none' : 'block';
+
+   const totalEleitorado = dados.reduce(function (s, m) { return s +Number(m.eleitorado_2024 || 0); }, 0);
+   const totalAbstencao = dados.reduce(function (s, m) { return s +Number(m.abstencoes_2024 || 0); }, 0);
+   document.getElementById('kpiEleitoradoTotal').textContent = totalEleitorado.toLocaleString('pt-BR'); document.getElementById('kpiAbstencaoTotal').textContent = totalAbstencao.toLocaleString('pt-BR'); const sufixo = filtro ? (dados.length + ' município(s) filtrado(s)') :('todos os ' + dados.length + ' municípios'); document.getElementById('kpiEleitoradoTotalSub').textContent = sufixo; document.getElementById('kpiAbstencaoTotalSub').textContent = sufixo;
+
+   dados.forEach(function (m) {const tr = document.createElement('tr'); tr.innerHTML = '<td>' + escapeHtml(m.municipio) + '</td>' +'<td>' + escapeHtml(m.regiao || '—') + '</td>' +'<td class="num">' + Number(m.eleitorado_2024 ||0).toLocaleString('pt-BR') + '</td>' +'<td class="num">' + Number(m.abstencoes_2024 ||0).toLocaleString('pt-BR') + '</td>' +'<td>' + escapeHtml(m.prefeito_atual || '—') + '</td>' +'<td>' + escapeHtml(m.partido_atual || '—') + '</td>' +'<td><span class="badge ' + badgeClass(m.alinhamento_1) + '">' +(m.alinhamento_1 || '—') + '</span></td>' +'<td class="num">' + (m.score != null ? m.score : '—') + '</td>' +'<td>' + escapeHtml(m.nivel_risco || '—') + '</td>'; tbody.appendChild(tr); }); }
+
+ function exportarZonasPDF() {const filtro = (document.getElementById('zonasFiltro').value ||'').toLowerCase(); const dados = CACHE.municipios.filter(function (m) {return !filtro || (m.municipio || '').toLowerCase().indexOf(filtro) !== -1; }); const linhas = dados.map(function (m) {return [m.municipio, m.regiao || '—', m.eleitorado_2024 || 0,m.abstencoes_2024 || 0, m.prefeito_atual || '—', m.partido_atual || '—',m.alinhamento_1 || '—']; }); exportarPDF('Zonas Eleitorais - Painel de Campanha', ['Município','Região', 'Eleitorado 2024', 'Abstenção 2024', 'Prefeito', 'Partido','Alinhamento'], linhas); }
+
+ document.getElementById('zonasFiltro') &&document.getElementById('zonasFiltro').addEventListener('input',renderZonas);
+
+ // --------------------------------------------------------------// EXPORTAÇÃO EM PDF (genérico)
+ // --------------------------------------------------------------function exportarPDF(titulo, cabecalho, linhas) {if (!window.jspdf) {alert('Não foi possível carregar a biblioteca de PDF (problema de rede/conexão). Tente novamente ou verifique sua internet.'); return; } google.script.run.withFailureHandler(function () {}).registrarLog(SESSAO.token, 'Exportar PDF', titulo); const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: linhas.length && cabecalho.length > 6 ? 'landscape' : 'portrait' }); doc.setFontSize(13); doc.text(titulo, 14, 15); doc.setFontSize(9); doc.text('Gerado em ' + new Date().toLocaleString('pt-BR'), 14, 21); doc.autoTable({head: [cabecalho],body: linhas,startY: 26,styles: { fontSize: 8, cellPadding: 3 },headStyles: { fillColor: [15, 44, 71] } }); doc.save(titulo.replace(/\s+/g, '_').replace(/[^\w-]/g, '') + '.pdf'); }
+
+ // --------------------------------------------------------------// LÍDERES (cadastro de pessoas)
+ // --------------------------------------------------------------function renderPessoas() {const tbody = document.getElementById('tblPessoas'); if (!tbody) return; tbody.innerHTML = ''; document.getElementById('emptyPessoas').style.display = CACHE.pessoas.length ? 'none' : 'block'; const podeEditar = podeEditarGeral(); CACHE.pessoas.forEach(function (p) {const statusBadge = p.ativo ? '<span class="badge concluido">Ativo</span>' : '<span class="badge saida">Inativo</span>'; const tr = document.createElement('tr'); tr.innerHTML = '<td>' + escapeHtml(p.nome) + '</td>' +'<td>' + escapeHtml(p.papel || '—') + '</td>' +'<td>' + escapeHtml(p.municipio || '—') + '</td>' +'<td>' + escapeHtml(p.telefone || '—') + '</td>' +'<td>' + statusBadge + '</td>' +'<td>' + (podeEditar ? '<button class="btn secondary" onclick="editarPessoa(\'' + p.id + '\')">Editar</button>' : '') + '</td>'; tbody.appendChild(tr); }); }
+
+ function abrirModalPessoa() {document.getElementById('psId').value = ''; document.getElementById('psNome').value = ''; document.getElementById('psPapel').value = 'Líder'; document.getElementById('psMunicipio').value = ''; document.getElementById('psTelefone').value = ''; document.getElementById('modalPessoa').classList.add('show'); }
+
+ function editarPessoa(id) {const p = CACHE.pessoas.find(function (x) { return x.id === id; });
+   if (!p) return;
+   document.getElementById('psId').value = p.id; document.getElementById('psNome').value = p.nome || ''; document.getElementById('psPapel').value = p.papel || 'Líder'; document.getElementById('psMunicipio').value = p.municipio || ''; document.getElementById('psTelefone').value = p.telefone || ''; document.getElementById('modalPessoa').classList.add('show'); }
+
+ function fecharModalPessoa() {document.getElementById('modalPessoa').classList.remove('show'); }
+
+ function salvarPessoaForm() {const registro = {nome: document.getElementById('psNome').value.trim(),papel: document.getElementById('psPapel').value.trim() || 'Líder',municipio: document.getElementById('psMunicipio').value.trim(),telefone: document.getElementById('psTelefone').value.trim() }; if (!registro.nome) { alert('Preencha ao menos o nome.'); return; } const id = document.getElementById('psId').value; if (id) registro.id = id; setLoading(40); google.script.run .withSuccessHandler(function () { fecharModalPessoa(); recarregarTudo(); }) .withFailureHandler(onError) .salvarPessoa(SESSAO.token, registro); }
+
+ // --------------------------------------------------------------// AGENDA — dropdown de líder (substitui popularFiltroLideres antiga)
+ // --------------------------------------------------------------function popularDropdownLideresAgenda() {const selResp = document.getElementById('agResponsavel'); if (selResp) {const atual = selResp.value; selResp.innerHTML = '<option value="">Selecione...</option>' +(CACHE.pessoas || []).map(function (p) {return '<option value="' + p.id + '">' + escapeHtml(p.nome) +'</option>'; }).join(''); selResp.value = atual; } const selFiltro = document.getElementById('agendaFiltroLider'); if (selFiltro) {const atualFiltro = selFiltro.value; selFiltro.innerHTML = '<option value="">Todos os líderes</option>' +(CACHE.pessoas || []).map(function (p) {return '<option value="' + p.id + '">' + escapeHtml(p.nome) +'</option>'; }).join(''); selFiltro.value = atualFiltro; } }
+
+ // --------------------------------------------------------------// ADMINISTRAÇÃO DE USUÁRIOS (Gerenciador / TI)
+ // --------------------------------------------------------------let USUARIOS_CACHE = [];
+
+ function carregarUsuarios() {google.script.run .withSuccessHandler(function (lista) {USUARIOS_CACHE = lista;
+       renderUsuarios();
+     })
+     .withFailureHandler(onError)
+     .listarUsuarios(SESSAO.token);
+ }
+
+ function renderUsuarios() {const tbody = document.getElementById('tblUsuarios'); if (!tbody) return; tbody.innerHTML = ''; document.getElementById('emptyUsuarios').style.display = USUARIOS_CACHE.length ? 'none' : 'block'; USUARIOS_CACHE.forEach(function (u) {const tr = document.createElement('tr'); const statusBadge = u.ativo ? '<span class="badge concluido">Ativo</span>' : '<span class="badge saida">Bloqueado</span>'; tr.innerHTML = '<td>' + escapeHtml(u.nome || '—') + '</td>' +'<td>' + escapeHtml(u.email || '—') + '</td>' +'<td>' +'<select onchange="mudarPerfilUsuario(\'' + u.user_id + '\',this.value)" style="padding:4px 6px; font-size:12px;">' +['Gerenciador', 'TI', 'Financeiro', 'Visualizador'].map(function (p) {return '<option' + (p === u.perfil ? ' selected' : '') + '>' +p + '</option>'; }).join('') +'</select>' +'</td>' +'<td>' + statusBadge + '</td>' +'<td>' + fmtDate(u.criado_em) + '</td>' +'<td style="display:flex; gap:6px;">' +'<button class="btn secondary" onclick="abrirEditarNome(\'' +u.user_id + '\', \'' + escapeHtml(u.nome || '').replace(/'/g, "\\'") +'\')">Editar nome</button>' +'<button class="btn secondary" onclick="confirmarRedefinirSenha(\'' + u.user_id + '\', \'' + u.email +'\', \'' + escapeHtml(u.nome || '').replace(/'/g, "\\'") + '\')">Redefinir senha</button>' +'<button class="btn secondary" onclick="alternarAtivo(\'' +u.user_id + '\', ' + (!u.ativo) + ')">' +(u.ativo ? 'Bloquear' : 'Liberar') +'</button>' +'</td>'; tbody.appendChild(tr); }); }
+
+ function abrirModalUsuario() {document.getElementById('usNome').value = ''; document.getElementById('usEmail').value = ''; document.getElementById('usPerfil').value = 'Visualizador'; document.getElementById('usuarioErro').style.display = 'none'; document.getElementById('modalUsuario').classList.add('show'); }
+
+ function fecharModalUsuario() {document.getElementById('modalUsuario').classList.remove('show'); }
+
+ function salvarUsuarioForm() {const dados = {nome: document.getElementById('usNome').value.trim(),email: document.getElementById('usEmail').value.trim(),perfil: document.getElementById('usPerfil').value }; const erroBox = document.getElementById('usuarioErro'); erroBox.style.display = 'none'; if (!dados.nome || !dados.email) {erroBox.textContent = 'Preencha nome e e-mail.'; erroBox.style.display = 'block'; return; } document.getElementById('usuarioSalvarBtn').disabled = true; google.script.run .withSuccessHandler(function () {document.getElementById('usuarioSalvarBtn').disabled = false; fecharModalUsuario(); carregarUsuarios(); }) .withFailureHandler(function (err) {document.getElementById('usuarioSalvarBtn').disabled = false; erroBox.textContent = err && err.message ? err.message : 'Erro ao criar usuário.'; erroBox.style.display = 'block'; }) .criarUsuario(SESSAO.token, dados); }
+
+ function alternarAtivo(userId, novoAtivo) {google.script.run .withSuccessHandler(carregarUsuarios)
+     .withFailureHandler(onError)
+     .alternarAtivoUsuario(SESSAO.token, userId, novoAtivo);
+ }
+
+ function mudarPerfilUsuario(userId, novoPerfil) {google.script.run .withSuccessHandler(carregarUsuarios)
+     .withFailureHandler(onError)
+     .trocarPerfilUsuario(SESSAO.token, userId, novoPerfil);
+ }
+
+ function confirmarRedefinirSenha(userId, email, nome) {if (!confirm('Gerar uma nova senha temporária para ' + (nome || email) +' e enviar por e-mail?')) return; google.script.run .withSuccessHandler(function () { alert('Senha redefinida e enviada para ' + email + '.'); }) .withFailureHandler(onError) .redefinirSenhaUsuario(SESSAO.token, userId, email, nome); }
+
+ function abrirEditarNome(userId, nomeAtual) {document.getElementById('editNomeUserId').value = userId; document.getElementById('editNomeValor').value = nomeAtual || ''; document.getElementById('editNomeErro').style.display = 'none'; document.getElementById('modalEditarNome').classList.add('show'); }
+
+ function fecharEditarNome() {document.getElementById('modalEditarNome').classList.remove('show'); }
+
+ function confirmarEditarNome() {const userId = document.getElementById('editNomeUserId').value; const novoNome = document.getElementById('editNomeValor').value.trim(); const erroBox = document.getElementById('editNomeErro'); if (!novoNome) {erroBox.textContent = 'Digite um nome válido.'; erroBox.style.display = 'block'; return; } google.script.run .withSuccessHandler(function () { fecharEditarNome(); carregarUsuarios(); }) .withFailureHandler(function (err) {erroBox.textContent = err && err.message ? err.message : 'Erro ao salvar.'; erroBox.style.display = 'block'; }) .editarNomeUsuario(SESSAO.token, userId, novoNome); }
+
+ // --------------------------------------------------------------// LOGS DE AUDITORIA (Gerenciador / TI)
+ // --------------------------------------------------------------let LOGS_CACHE = [];
+
+ function carregarLogs() {google.script.run .withSuccessHandler(function (lista) { LOGS_CACHE = lista;
+renderLogs(); })
+     .withFailureHandler(onError)
+     .listarLogs(SESSAO.token);
+ }
+
+ function renderLogs() {const tbody = document.getElementById('tblLogs'); if (!tbody) return; tbody.innerHTML = ''; document.getElementById('emptyLogs').style.display = LOGS_CACHE.length ? 'none' : 'block'; LOGS_CACHE.forEach(function (l) {const tr = document.createElement('tr'); tr.innerHTML = '<td>' + fmtDateTime(l.criado_em) + '</td>' +'<td>' + escapeHtml(l.nome_usuario || l.email_usuario || '—') +'</td>' +'<td>' + escapeHtml(l.perfil_usuario || '—') + '</td>' +'<td>' + escapeHtml(l.acao) + '</td>' +'<td>' + escapeHtml(l.detalhes || '—') + '</td>'; tbody.appendChild(tr); }); }
+
+ function exportarLogsPDF() {const linhas = LOGS_CACHE.map(function (l) {return [fmtDateTime(l.criado_em), l.nome_usuario || l.email_usuario ||'—', l.perfil_usuario || '—', l.acao, l.detalhes || '—']; }); exportarPDF('Logs de Auditoria - Painel de Campanha', ['Data/Hora','Usuário', 'Perfil', 'Ação', 'Detalhes'], linhas); }
+
+ // --------------------------------------------------------------// TROCAR MINHA SENHA (qualquer perfil)
+ // --------------------------------------------------------------function abrirModalTrocarSenha() {document.getElementById('novaSenha1').value = ''; document.getElementById('novaSenha2').value = ''; document.getElementById('senhaErro').style.display = 'none'; document.getElementById('modalTrocarSenha').classList.add('show'); }
+
+ function fecharModalTrocarSenha() {document.getElementById('modalTrocarSenha').classList.remove('show'); }
+
+ function confirmarTrocaSenha() {const s1 = document.getElementById('novaSenha1').value; const s2 = document.getElementById('novaSenha2').value; const erroBox = document.getElementById('senhaErro'); erroBox.style.display = 'none'; if (!s1 || s1.length < 6) {erroBox.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; erroBox.style.display = 'block'; return; } if (s1 !== s2) {erroBox.textContent = 'As senhas não coincidem.'; erroBox.style.display = 'block'; return; } google.script.run .withSuccessHandler(function () {fecharModalTrocarSenha(); alert('Senha atualizada com sucesso!'); }) .withFailureHandler(function (err) {erroBox.textContent = err && err.message ? err.message : 'Erro ao trocar senha.'; erroBox.style.display = 'block'; }) .trocarMinhaSenha(SESSAO.token, s1); } </script>
