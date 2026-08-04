@@ -43,12 +43,21 @@ function login(email, senha) {
   var response = UrlFetchApp.fetch(cfg.url + '/auth/v1/token?grant_type=password', {
     method: 'POST',
     contentType: 'application/json',
-    headers: { apikey: cfg.key },
+    headers: {
+      apikey: cfg.key,
+      Authorization: 'Bearer ' + cfg.key
+    },
     payload: JSON.stringify({ email: email, password: senha }),
     muteHttpExceptions: true
   });
   var code = response.getResponseCode();
-  var data = JSON.parse(response.getContentText());
+  var text = response.getContentText();
+  var data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Resposta inválida do Supabase. Verifique SUPABASE_URL e SUPABASE_KEY.');
+  }
 
   if (code >= 400) {
     throw new Error(data.error_description || data.msg || 'E-mail ou senha inválidos.');
