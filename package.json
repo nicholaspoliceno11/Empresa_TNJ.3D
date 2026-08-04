@@ -1,0 +1,20 @@
+{
+  "name": "eleicoes-2026-painel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Eleições 2026 — painel de gestão (frontend estático + Google Apps Script)",
+  "scripts": {
+    "dev": "http-server . -p 8080 -c-1 -o",
+    "start": "http-server . -p 8080 -c-1",
+    "clasp:login": "clasp login",
+    "clasp:pull": "clasp pull",
+    "clasp:push": "clasp push",
+    "clasp:deploy": "clasp deploy --description \"Eleições 2026 API\"",
+    "clasp:open": "clasp open",
+    "clasp:deployments": "clasp deployments"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "http-server": "^14.1.1"
+  }
+}

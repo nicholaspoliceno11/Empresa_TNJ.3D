@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eleições 2026 — Painel de Gestão</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1 id="titulo-painel">Eleições 2026 — Painel de Gestão</h1>
+        <p>Frontend estático + Google Apps Script (planilha como banco de dados)</p>
+      </header>
+
+      <section class="card">
+        <h2>Primeiros passos</h2>
+        <ol>
+          <li>Clone este repositório e entre na pasta do projeto.</li>
+          <li><code>npm install</code></li>
+          <li><code>npm run clasp:login</code> (Apps Script API ativada)</li>
+          <li><code>npm run clasp:pull</code> — baixa o código do Google</li>
+          <li><code>npm run clasp:push</code> e <code>npm run clasp:deploy</code></li>
+          <li>Cole a URL <code>/exec</code> em <code>assets/js/config.js</code></li>
+          <li><code>npm run dev</code> — abre em <code>http://localhost:8080</code></li>
+        </ol>
+        <p id="status-api" class="status status--aviso">Carregando…</p>
+      </section>
+    </div>
+
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>
