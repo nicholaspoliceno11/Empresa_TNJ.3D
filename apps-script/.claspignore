@@ -1,0 +1,4 @@
+# Ignore everything that isn't a GAS source or manifest
+**
+!Codigo.gs
+!appsscript.json

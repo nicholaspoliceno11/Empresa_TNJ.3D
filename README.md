@@ -62,6 +62,28 @@ A URL fica salva no navegador (localStorage). Ideal para testar antes de publica
 > **da própria planilha** (Extensões › Apps Script), com `PLANILHA_ID` correto, e uma **Nova versão**
 > da implantação com **Executar como: Eu**.
 
+### Opção C — Via CLI (clasp) — recomendado para desenvolvimento
+
+Com `clasp` você envia o `Codigo.gs` direto para o projeto Apps Script sem abrir o
+navegador. O projeto já está configurado em `apps-script/.clasp.json`.
+
+```bash
+# 1. Autenticar (abre o navegador uma única vez para autorizar)
+npx clasp login
+
+# 2. Enviar o Codigo.gs para o Apps Script
+npm run gs:push          # equivale a: clasp push --rootDir apps-script
+
+# 3. Baixar a versão que está no Apps Script (sincronizar)
+npm run gs:pull          # equivale a: clasp pull --rootDir apps-script
+
+# 4. Abrir o projeto no editor online
+npm run gs:open
+```
+
+Após o `gs:push`, vá em **Implantar › Gerenciar implantações** no editor do Apps Script e
+crie uma **Nova versão** para que as alterações passem a valer na URL `/exec`.
+
 > A aba `Filamentos` deve ter os cabeçalhos `Material | Valor | QTD` (como já está na sua
 > planilha). As abas de custos são criadas/completadas automaticamente na primeira gravação.
 
@@ -80,5 +102,7 @@ assets/js/calc.js          Fórmulas (usadas no site e nos testes)
 assets/js/config.js        Configuração (API_URL, padrões, filamentos demo)
 assets/js/app.js           Interface: carrega filamentos, calcula, salva
 apps-script/Codigo.gs      Backend Google Apps Script
+apps-script/.clasp.json    Configuração do clasp (script ID)
+apps-script/appsscript.json Manifesto do Apps Script (fuso, runtime V8)
 test/calc.test.js          Testes das fórmulas
 ```
