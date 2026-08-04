@@ -1,0 +1,55 @@
+<!-- ============================================================
+     LIDERES.HTML — nova seção de cadastro de Líderes (pessoas)
+     Cole ANTES do painel de QGs existente (ou depois, como preferir)
+     ============================================================ -->
+
+<div class="panel">
+  <div class="toolbar">
+    <div>
+      <h3 style="margin-bottom:0;">Líderes</h3>
+      <div class="panel-sub">Cadastro de líderes usado na Agenda e no Financeiro</div>
+    </div>
+    <button class="btn" data-roles="Gerenciador,TI" onclick="abrirModalPessoa()">+ Novo líder</button>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Papel</th>
+        <th>Município</th>
+        <th>Telefone</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tblPessoas"></tbody>
+  </table>
+  <div class="empty-state" id="emptyPessoas" style="display:none;">Nenhum líder cadastrado ainda.</div>
+</div>
+
+<div class="modal-backdrop" id="modalPessoa">
+  <div class="modal">
+    <h3>Novo líder</h3>
+    <input type="hidden" id="psId">
+    <div class="form-row">
+      <label>Nome
+        <input type="text" id="psNome" placeholder="Nome completo">
+      </label>
+      <label>Papel
+        <input type="text" id="psPapel" placeholder="Ex: Líder, Líder Religioso, Coordenador">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Município
+        <input type="text" id="psMunicipio" placeholder="Ex: Maceió">
+      </label>
+      <label>Telefone
+        <input type="text" id="psTelefone" placeholder="(82) 9....">
+      </label>
+    </div>
+    <div class="form-row" style="justify-content:flex-end;">
+      <button class="btn secondary" onclick="fecharModalPessoa()">Cancelar</button>
+      <button class="btn" onclick="salvarPessoaForm()">Salvar</button>
+    </div>
+  </div>
+</div>
