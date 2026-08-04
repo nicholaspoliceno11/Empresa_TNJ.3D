@@ -47,20 +47,48 @@ filamentos embutida e simula o salvamento), o que permite testar tudo localmente
 
 A URL fica salva no navegador (localStorage). Ideal para testar antes de publicar.
 
-### Opção B — Via `config.js` (GitHub Pages)
+### Opção B — Via CLI (`clasp`) — recomendado para o backend
 
-1. Abra a planilha › menu **Extensões › Apps Script**.
-2. Apague o conteúdo padrão e cole o código de [`apps-script/Codigo.gs`](apps-script/Codigo.gs).
-3. Clique em **Implantar › Nova implantação**, escolha o tipo **App da Web**:
-   - **Executar como:** Eu (sua conta) — **não** use "Usuário que acessa"
-   - **Quem tem acesso:** Qualquer pessoa
-4. Autorize e **copie a URL** que termina em `/exec`.
-5. Cole essa URL em [`assets/js/config.js`](assets/js/config.js), na variável `API_URL`.
-6. Faça commit/push. Pronto: o site passa a ler e gravar na planilha.
+O projeto já está vinculado ao Apps Script
+[1epspmLLlbedpTZ8HzeGB0-XMI06kMe4ozDOTdwLmwfRsMaHvaMr7pd0Y](https://script.google.com/home/projects/1epspmLLlbedpTZ8HzeGB0-XMI06kMe4ozDOTdwLmwfRsMaHvaMr7pd0Y/edit)
+(ver `.clasp.json`).
 
-> **Erro "sem permissão para acessar o documento"?** O `Codigo.gs` precisa estar no Apps Script
-> **da própria planilha** (Extensões › Apps Script), com `PLANILHA_ID` correto, e uma **Nova versão**
-> da implantação com **Executar como: Eu**.
+**Pré-requisitos (uma vez):**
+
+1. Ative a [Apps Script API](https://script.google.com/home/usersettings) na sua conta Google.
+2. `npm install`
+3. `npm run clasp:login` — autorize no navegador.
+
+**Publicar alterações do backend:**
+
+```bash
+npm run clasp:push      # envia apps-script/Codigo.gs para o Google
+npm run clasp:deploy    # cria nova versão da implantação (App da Web)
+```
+
+O manifesto em `apps-script/appsscript.json` já define **Executar como: Eu** e
+**Quem tem acesso: Qualquer pessoa**. Após o deploy, copie a URL `/exec` da implantação
+(no editor ou com `clasp deployments`) e cole em `assets/js/config.js` (`API_URL`).
+
+Comandos úteis:
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run clasp:pull` | Baixa o código do Apps Script para `apps-script/` |
+| `npm run clasp:push` | Envia o código local para o Apps Script |
+| `npm run clasp:deploy` | Publica nova versão do App da Web |
+| `npm run clasp:open` | Abre o projeto no editor do Google |
+
+> **Erro "sem permissão para acessar o documento"?** Confira `PLANILHA_ID` em
+> `apps-script/Codigo.gs`, rode `npm run clasp:push` e `npm run clasp:deploy` para
+> publicar uma nova versão com **Executar como: Eu**.
+
+### Opção C — Colar manualmente no editor
+
+1. Abra a planilha › **Extensões › Apps Script** (ou use `npm run clasp:open`).
+2. Cole o código de [`apps-script/Codigo.gs`](apps-script/Codigo.gs).
+3. **Implantar › Nova implantação › App da Web** (Executar como: Eu; Qualquer pessoa).
+4. Cole a URL `/exec` em [`assets/js/config.js`](assets/js/config.js).
 
 > A aba `Filamentos` deve ter os cabeçalhos `Material | Valor | QTD` (como já está na sua
 > planilha). As abas de custos são criadas/completadas automaticamente na primeira gravação.
@@ -80,5 +108,7 @@ assets/js/calc.js          Fórmulas (usadas no site e nos testes)
 assets/js/config.js        Configuração (API_URL, padrões, filamentos demo)
 assets/js/app.js           Interface: carrega filamentos, calcula, salva
 apps-script/Codigo.gs      Backend Google Apps Script
+apps-script/appsscript.json Manifesto (clasp)
+.clasp.json                Vínculo com o projeto no Google (scriptId)
 test/calc.test.js          Testes das fórmulas
 ```

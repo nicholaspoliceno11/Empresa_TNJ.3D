@@ -11,9 +11,13 @@ Google como banco de dados. Não há build: os arquivos em `assets/` são servid
   - `npm run dev` → serve em `http://localhost:8080` (via `http-server`).
   - `npm test` → roda os testes das fórmulas (`node --test`, sem dependências extras).
   - `npm run lint` → ESLint (flat config em `eslint.config.js`).
+- **Apps Script (backend)** — via clasp em `package.json`:
+  - `npm run clasp:login` → autenticação Google (uma vez).
+  - `npm run clasp:push` / `clasp:deploy` → publica `apps-script/Codigo.gs`.
 - **Backend** (`apps-script/Codigo.gs`) roda no Google Apps Script, **não** localmente.
-  Não há como testá-lo neste ambiente sem uma implantação na conta Google do dono da
-  planilha.
+  Publicação via **clasp** (`npm run clasp:push` / `clasp:deploy`); o `scriptId` está em
+  `.clasp.json`. Não há como testá-lo neste ambiente sem `clasp login` na conta Google do
+  dono da planilha.
 
 ### Gotchas importantes
 
