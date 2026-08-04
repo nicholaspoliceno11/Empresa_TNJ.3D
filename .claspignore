@@ -1,0 +1,16 @@
+# Não enviar para o Apps Script — só ferramentas locais
+node_modules/**
+package.json
+package-lock.json
+.git/**
+.gitignore
+
+# Scaffold estático (NÃO faz parte do painel GAS — causa "window is not defined")
+assets/**
+index.html
+
+# Pasta de patches/referência local
+atualizacao-frontend/**
+
+# Subpasta duplicada (se existir; o backend é Codigo.gs na raiz)
+apps-script/**
