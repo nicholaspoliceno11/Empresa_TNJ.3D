@@ -53,7 +53,8 @@
   const brl = (n) =>
     "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const API_TIMEOUT_MS = 20000;
+  const API_TIMEOUT_MS = 35000;
+  let jsonpSeq = 0;
   const ERRO_CONEXAO =
     'Falha de conexão. Confirme no Apps Script: "Quem tem acesso: Qualquer pessoa" e Nova versão.';
 
@@ -73,7 +74,7 @@
 
   function apiJsonp(action, extraParams) {
     return new Promise((resolve, reject) => {
-      const cb = "_tnjCb" + Date.now();
+      const cb = "_tnjCb" + Date.now() + "_" + ++jsonpSeq;
       let script;
       const timer = setTimeout(() => {
         cleanup();
