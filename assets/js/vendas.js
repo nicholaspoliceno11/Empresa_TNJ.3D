@@ -541,8 +541,20 @@
   }
 
   async function preencherProjetosCache() {
-    cacheProjetos = ordenarProjetos(await api().fetchProjetos());
-    atualizarBuscaVenda();
+    try {
+      cacheProjetos = ordenarProjetos(await api().fetchProjetos());
+      atualizarBuscaVenda();
+    } catch (e) {
+      const box = $("venda-busca-resultados");
+      if (box) {
+        box.hidden = false;
+        box.innerHTML =
+          '<p class="muted field-hint">Não foi possível carregar a lista de projetos para venda (' +
+          e.message +
+          "). Use o botão Recarregar.</p>";
+      }
+      throw e;
+    }
   }
 
   async function registrarVenda() {
@@ -825,19 +837,21 @@
     $("btn-toggle-caixa")?.addEventListener("click", toggleCaixa);
     $("btn-salvar-caixa")?.addEventListener("click", salvarCaixa);
     $("btn-recarregar-vendas")?.addEventListener("click", async () => {
-      await preencherProjetosCache();
-      await carregarVendas();
-      await carregarSaidas();
-      await atualizarFinanceiro();
-      if (caixaVisivel) await carregarCaixa();
+      const tarefas = [carregarVendas(), carregarSaidas(), atualizarFinanceiro(), preencherProjetosCache()];
+      if (caixaVisivel) tarefas.push(carregarCaixa());
+      await Promise.allSettled(tarefas);
     });
   }
 
   async function onShowVendas() {
-    await preencherProjetosCache();
-    await carregarVendas();
-    await carregarSaidas();
-    await atualizarFinanceiro();
+    // Cada seção carrega de forma independente: se uma chamada falhar ou
+    // demorar (cold start do Apps Script), as demais continuam carregando.
+    await Promise.allSettled([
+      carregarVendas(),
+      carregarSaidas(),
+      atualizarFinanceiro(),
+      preencherProjetosCache(),
+    ]);
   }
 
   window.TNJVendas = { initVendas, onShowVendas };
